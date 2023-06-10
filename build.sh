@@ -5,4 +5,5 @@ dazel build \
     --platforms=//devkitpro-bazel:devkitpro_nx_platform \
     --toolchain_resolution_debug \
     --verbose_failures \
-    //src:hello-world-nacp
+    --sandbox_debug \
+    //src:hello-world-nro

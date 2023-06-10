@@ -1,10 +1,9 @@
-load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("@rules_cc//cc:defs.bzl", "cc_library")
 load("//devkitpro-bazel:tools.bzl", "nacp", "nro")
 
 cc_binary(
     name = "hello-world",
     srcs = ["hello-world.cpp"],
-    features = ["interpret_as_executable"],
     copts = [
         "-march=armv8-a+crc+crypto",
         "-mtune=cortex-a57",

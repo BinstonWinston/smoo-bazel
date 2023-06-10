@@ -1,10 +1,3 @@
-# /opt/devkitpro/tools/bin/nacptool --create <name> <author> <version> <outfile> [options]
-
-# FLAGS:
-# --create : Create control.nacp for use with Switch homebrew applications.
-# Options:
-# --titleid=<titleID>
-
 def _nacp_impl(ctx):
     out_file = ctx.actions.declare_file("%s.nacp" % ctx.attr.name)
     ctx.actions.run_shell(
@@ -24,26 +17,32 @@ def _nacp_impl(ctx):
 nacp = rule(
     implementation = _nacp_impl,
     attrs = {
-        "nacp_name": attr.string(),
-        "author": attr.string(),
-        "version": attr.string(),
-        "titleid": attr.string(),
+        "nacp_name": attr.string(mandatory=True),
+        "author": attr.string(mandatory=True),
+        "version": attr.string(mandatory=True),
+        "titleid": attr.string(mandatory=True),
     }
 )
 
 
 def _nro_impl(ctx):
-    out = ctx.actions.declare_file(ctx.label.name)
-    ctx.actions.write(
-        output = out,
-        content = "Hello {}!\n".format(ctx.attr.target),
+    in_file = ctx.attr.target.files.to_list()[0]
+    out_file = ctx.actions.declare_file("%s.nro" % ctx.attr.name)
+    ctx.actions.run_shell(
+        inputs = [in_file],
+        outputs = [out_file],
+        progress_message = "Creating NRO file %s" % ctx.label.name,
+        command = "/opt/devkitpro/tools/bin/elf2nro '%s' '%s'" %
+                  (in_file.path,
+                  out_file.path),
     )
-    return [DefaultInfo(files = depset([out]))]
+
+    return [DefaultInfo(files = depset([out_file]))]
 
 
 nro = rule(
     implementation = _nro_impl,
     attrs = {
-        "target": attr.label(),
+        "target": attr.label(mandatory=True),
     }
 )
