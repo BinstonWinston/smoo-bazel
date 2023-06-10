@@ -1,0 +1,9 @@
+FROM dazel/dazel:3.7.1
+
+RUN apt-get update -y && \
+    apt-get install -y wget && \
+    wget https://apt.devkitpro.org/install-devkitpro-pacman && \
+    chmod +x ./install-devkitpro-pacman && \
+    yes "Y" | ./install-devkitpro-pacman
+
+RUN dkp-pacman -S --noconfirm switch-dev
