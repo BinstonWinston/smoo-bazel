@@ -16,5 +16,5 @@ cc_binary(
         "-fno-rtti",
         "-fno-exceptions",
     ],
-    exec_compatible_with = ["//devkitpro_toolchain:simple_cpp_toolchain"]
+    exec_compatible_with = ["//devkitpro-bazel/devkitpro_toolchain:simple_cpp_toolchain"]
 )

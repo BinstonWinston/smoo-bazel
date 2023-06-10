@@ -1,1 +1,1 @@
-DAZEL_DOCKERFILE="Dockerfile.dazel"
+DAZEL_DOCKERFILE="devkitpro-bazel/Dockerfile.dazel"
