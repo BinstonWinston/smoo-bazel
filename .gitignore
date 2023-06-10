@@ -1,1 +1,3 @@
 .dazel_run
+bazel_bin
+bazel_out

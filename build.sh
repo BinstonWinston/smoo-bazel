@@ -4,4 +4,5 @@ dazel build \
     --incompatible_enable_cc_toolchain_resolution \
     --platforms=//devkitpro-bazel:devkitpro_nx_platform \
     --toolchain_resolution_debug \
-    //src:hello-world
+    --verbose_failures \
+    //src:hello-world-nacp
