@@ -1,7 +1,7 @@
 
 
 filegroup(
-    name = "switch_specs",
+    name = "smo_switch_specs",
     srcs = ["switch.specs"] + glob([
         "linkerscripts/*.ld",
     ]),
