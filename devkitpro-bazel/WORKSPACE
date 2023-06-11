@@ -1,0 +1,7 @@
+workspace(name = "devkitpro_rules_devkitpro")
+
+new_local_repository(
+    name = "devkitpro_sys",
+    path = "/opt/devkitpro",
+    build_file = "devkitpro_sys.BUILD"
+)

@@ -1,5 +1,5 @@
 # Toolchain target definition
-load("//devkitpro-bazel:devkitpro_toolchain.bzl", "cc_toolchain_config_info_generator")
+load(":devkitpro_toolchain.bzl", "cc_toolchain_config_info_generator")
 
 cc_toolchain_config_info_generator(name = "devkitpro_nx_config")
 
@@ -34,7 +34,7 @@ cc_toolchain(
 toolchain(
     name                   = "devkitpro_nx_toolchain",
     exec_compatible_with   = [
-        "//devkitpro-bazel/devkitpro_toolchain:simple_cpp_toolchain",
+        "//devkitpro_toolchain:simple_cpp_toolchain",
         "@platforms//os:linux",
         "@platforms//cpu:aarch64"
     ],
@@ -43,7 +43,7 @@ toolchain(
         "@platforms//cpu:aarch64"
     ],
     # target_settings        = [],
-    toolchain              = "//devkitpro-bazel:devkitpro_nx",
+    toolchain              = ":devkitpro_nx",
     # The toolchain_type attribute is an identifier that is used by a rule,
     # such as cc_binary, to indicate that the rule uses the identified type of
     # toolchain. Rules can use more than one toolchain_type. C++ rules use a
@@ -58,7 +58,7 @@ toolchain(
 platform(
     name                 = "devkitpro_nx_platform",
     constraint_values    = [
-        "//devkitpro-bazel/devkitpro_toolchain:simple_cpp_toolchain",
+        "//devkitpro_toolchain:simple_cpp_toolchain",
         "@platforms//cpu:aarch64",
         "@platforms//os:linux"
     ]

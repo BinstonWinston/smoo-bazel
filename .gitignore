@@ -1,3 +1,5 @@
 .dazel_run
-bazel_bin
-bazel_out
+bazel-bin
+bazel-out
+bazel-smoo-bazel
+bazel-testlogs
