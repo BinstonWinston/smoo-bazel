@@ -3,8 +3,8 @@ load("@devkitpro//:tools.bzl", "dkp_cc_binary", "dkp_nacp", "dkp_nro")
 dkp_cc_binary(
     name = "hello-world",
     srcs = ["hello-world.cpp"],
-    switch_specs = "//specs:smo_switch_specs",
     deps = ["@devkitpro_sys//:libnx"],
+    # switch_specs = "//specs:smo_switch_specs",
 )
 
 dkp_nacp(

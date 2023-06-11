@@ -1,10 +1,35 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 
-def dkp_cc_binary(name, srcs, deps=[], switch_specs="@devkitpro_sys//:default_switch_specs", visibility=None):
+def _switch_specs_to_linker_flags_impl(ctx):
+    spec_file_path = None
+    for file in ctx.attr.switch_spec_files.files.to_list():
+        if file.extension == "specs":
+            spec_file_path = file.path
+
+    if spec_file_path == None:
+        print("Error can't find spec file")
+        return None
+
+    linker_input = cc_common.create_linker_input(
+        owner = ctx.label,
+        user_link_flags = depset(["-Wl,specs=" + spec_file_path]),
+    )
+    compilation_context = cc_common.create_compilation_context()
+    linking_context = cc_common.create_linking_context(linker_inputs = depset(direct = [linker_input]))
+    return CcInfo(compilation_context = compilation_context, linking_context = linking_context)
+
+switch_specs_to_linker_flags = rule(
+    implementation = _switch_specs_to_linker_flags_impl,
+    attrs = {
+        "switch_spec_files": attr.label(mandatory=True),
+    }
+)
+
+def dkp_cc_binary(name, srcs, deps=[], switch_specs="@devkitpro//specs:default_switch_specs", visibility=None):
     cc_binary(
         name = name,
         srcs = srcs,
-        deps = deps,
+        deps = deps + [switch_specs],
         copts = [
             "-march=armv8-a+crc+crypto",
             "-mtune=cortex-a57",
@@ -19,7 +44,6 @@ def dkp_cc_binary(name, srcs, deps=[], switch_specs="@devkitpro_sys//:default_sw
             "-fno-exceptions",
         ],
         linkopts = [
-            "-specs=/opt/devkitpro/libnx/switch.specs",
             "-g",
 
             "-march=armv8-a+crc+crypto",
@@ -30,9 +54,6 @@ def dkp_cc_binary(name, srcs, deps=[], switch_specs="@devkitpro_sys//:default_sw
             # "-Wl,-Map,$(notdir $*.map)"
             # "-Wl,--version-script=$(TOPDIR)/exported.txt",
             "-Wl,-init=__custom_init -Wl,-fini=__custom_fini -nostdlib",
-        ],
-        data = [
-            switch_specs,
         ],
         exec_compatible_with = ["@devkitpro//devkitpro_toolchain:simple_cpp_toolchain"]
     )

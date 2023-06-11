@@ -1,5 +1,5 @@
 filegroup(
-    name = "default_switch_specs",
+    name = "default_switch_spec_files",
     srcs = [
         "libnx/switch.specs"
     ],
