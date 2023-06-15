@@ -1,17 +1,11 @@
 load("@devkitpro//:tools.bzl", "dkp_cc_binary", "dkp_nacp", "dkp_nro")
 
-genrule(
-    name = "my_test_target",
-    srcs = ["//specs:smo_switch_spec_file"],
-    outs = ["app_output"],
-    cmd = "echo `pwd`/$(rootpath //specs:smo_switch_spec_file) > $@",
-)
-
 dkp_cc_binary(
     name = "hello_world",
     srcs = ["hello_world.cpp"],
     deps = ["@devkitpro_sys//:libnx"],
-    switch_specs = "//specs:smo_switch_specs",
+    # switch_specs = "//specs:smo_switch_specs",
+    # switch_linker_scripts = ["//specs:smo_switch_linker_scripts"],
 )
 
 dkp_nacp(
