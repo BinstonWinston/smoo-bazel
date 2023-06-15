@@ -1,14 +1,8 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 
 def _switch_specs_to_linker_flags_impl(ctx):
-    spec_file_path = None
-    for file in ctx.attr.switch_spec_files.files.to_list():
-        if file.extension == "specs":
-            spec_file_path = file.path
-
-    if spec_file_path == None:
-        print("Error can't find spec file")
-        return None
+    # print(ctx.expand_location("$(location " + str(ctx.attr.switch_spec.label) + ")", targets=[ctx.attr.switch_spec]))
+    spec_file_path = ctx.attr.switch_spec.files.to_list()[0].path
 
     linker_input = cc_common.create_linker_input(
         owner = ctx.label,
@@ -21,7 +15,8 @@ def _switch_specs_to_linker_flags_impl(ctx):
 switch_specs_to_linker_flags = rule(
     implementation = _switch_specs_to_linker_flags_impl,
     attrs = {
-        "switch_spec_files": attr.label(mandatory=True),
+        "switch_spec": attr.label(mandatory=True),
+        "linker_scripts": attr.label_list(default=[]),
     }
 )
 

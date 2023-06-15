@@ -8,4 +8,4 @@ dazel build \
     --toolchain_resolution_debug \
     --verbose_failures \
     --sandbox_debug \
-    //src:hello-world-nro
+    //src:hello_world_nro
