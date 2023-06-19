@@ -2,8 +2,8 @@
 
 #include "ActorFactory.h"
 
-#include "actors/PuppetActor.h"
-#include "actors/PuppetHackActor.h"
+#include "puppets/PuppetActor.h"
+#include "puppets/PuppetHackActor.h"
 #include "actors/FlagActor.h"
 #include "actors/BorderActor.h"
 

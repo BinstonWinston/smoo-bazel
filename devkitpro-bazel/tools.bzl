@@ -1,11 +1,16 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 
-def dkp_cc_binary(name, srcs, deps=[], visibility=None):
+def dkp_cc_binary(name, srcs, includes=[], deps=[], visibility=None):
     cc_binary(
         name = name,
         srcs = srcs,
+        includes = includes,
         deps = deps,
         copts = [
+            "-D__SWITCH__",
+            "-DSWITCH",
+            "-DNNSDK",
+            "-DSMOVER=100",
             "-std=c++20",
             "-march=armv8-a+crc+crypto",
             "-mtune=cortex-a57",
@@ -28,20 +33,24 @@ def dkp_cc_binary(name, srcs, deps=[], visibility=None):
             "-mtp=soft",
             "-fPIE",
             "-ftls-model=local-exec",
-            # "-Wl,-Map,$(notdir $*.map)"
-            # "-Wl,--version-script=$(TOPDIR)/exported.txt",
-            "-Wl,-init=__custom_init -Wl,-fini=__custom_fini -nostdlib",
+            "-Wl,-Map,/patches/maps/100/main.map",
+            "-Wl,--version-script=/patches/exported.txt",
+            "-Wl,-init=__custom_init",
+            "-Wl,-fini=__custom_fini",
+            "-nostdlib",
         ],
         exec_compatible_with = ["@devkitpro//devkitpro_toolchain:simple_cpp_toolchain"]
     )
 
-def dkp_cc_library(name, srcs, hdrs, deps=[], visibility=None):
+def dkp_cc_library(name, srcs, hdrs, includes=[], deps=[], visibility=None):
     cc_library(
         name = name,
         srcs = srcs,
         hdrs = hdrs,
+        includes = includes,
         deps = deps,
         copts = [
+            "-DNNSDK",
             "-std=c++20",
             "-march=armv8-a+crc+crypto",
             "-mtune=cortex-a57",

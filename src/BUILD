@@ -4,20 +4,36 @@ dkp_cc_library(
     name = "smoo_lib",
     srcs = glob([
         "**/*.cpp",
+        "**/*.c",
         "**/*.s",
     ]),
     hdrs = glob([
         "**/*.h",
         "**/*.hpp",
     ]),
+    includes = [
+        "./",
+        "./sead",
+    ],
     deps = ["@devkitpro_sys//:libnx"],
 )
 
 dkp_cc_binary(
     name = "smoo",
-    srcs = ["main.cpp"],
+    # srcs = ["main.cpp"],
+    srcs = glob([
+        "**/*.cpp",
+        "**/*.c",
+        "**/*.h",
+        "**/*.hpp",
+        "**/*.s",
+    ]),
+    includes = [
+        "./",
+        "./sead",
+    ],
     deps = [
-        ":smoo_lib",
+        # ":smoo_lib",
         "@devkitpro_sys//:libnx",
     ],
 )

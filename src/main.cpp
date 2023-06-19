@@ -14,7 +14,7 @@
 #include "math/seadVector.h"
 #include "server/Client.hpp"
 #include "puppets/PuppetInfo.h"
-#include "actors/PuppetActor.h"
+#include "puppets/PuppetActor.h"
 #include "al/LiveActor/LiveActor.h"
 #include "al/util.hpp"
 #include "al/util/AudioUtil.h"

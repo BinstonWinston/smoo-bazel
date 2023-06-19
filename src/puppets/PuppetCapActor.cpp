@@ -1,4 +1,4 @@
-#include "actors/PuppetCapActor.h"
+#include "puppets/PuppetCapActor.h"
 #include "al/util/MathUtil.h"
 
 PuppetCapActor::PuppetCapActor(const char *name) : al::LiveActor(name) {}

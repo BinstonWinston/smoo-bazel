@@ -1,4 +1,4 @@
-#include "actors/PuppetHackActor.h"
+#include "puppets/PuppetHackActor.h"
 #include "al/util.hpp"
 #include "logger.hpp"
 

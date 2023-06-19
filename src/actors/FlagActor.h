@@ -15,8 +15,8 @@
 #include "game/Player/PlayerConst.h"
 #include "game/Player/PlayerModelHolder.h"
 
-#include "actors/PuppetCapActor.h"
-#include "actors/PuppetHackActor.h"
+#include "puppets/PuppetCapActor.h"
+#include "puppets/PuppetHackActor.h"
 #include "layouts/NameTag.h"
 #include "sead/math/seadVector.h"
 #include "server/DeltaTime.hpp"

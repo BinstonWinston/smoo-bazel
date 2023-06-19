@@ -1,6 +1,6 @@
 #include "puppets/PuppetHolder.hpp"
 #include <math.h>
-#include "actors/PuppetActor.h"
+#include "puppets/PuppetActor.h"
 #include "al/util.hpp"
 #include "al/util/LiveActorUtil.h"
 #include "container/seadPtrArray.h"

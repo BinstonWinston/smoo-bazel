@@ -1,10 +1,10 @@
 #include "server/Client.hpp"
-#include "actors/PuppetActor.h"
+#include "puppets/PuppetActor.h"
 #include "al/util.hpp"
 #include "algorithms/CaptureTypes.h"
 #include "logger.hpp"
 #include "main.hpp"
-#include "actors/PuppetHackActor.h"
+#include "puppets/PuppetHackActor.h"
 #include "al/actor/alPlacementFunction.h"
 
 

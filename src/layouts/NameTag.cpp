@@ -1,6 +1,6 @@
 #include "layouts/NameTag.h"
 
-#include "actors/PuppetActor.h"
+#include "puppets/PuppetActor.h"
 #include "al/layout/LayoutActor.h"
 #include "al/util.hpp"
 #include "al/util/NerveUtil.h"

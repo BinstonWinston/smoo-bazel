@@ -5,7 +5,7 @@
 #include "sead/prim/seadSafeString.hpp"
 
 #include "helpers.hpp"
-#include "actors/PuppetHackActor.h"
+#include "puppets/PuppetHackActor.h"
 
 struct CaptureEntry {
     PuppetHackActor *actor;

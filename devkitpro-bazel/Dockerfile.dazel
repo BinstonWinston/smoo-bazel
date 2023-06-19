@@ -9,3 +9,4 @@ RUN apt-get update -y && \
 RUN dkp-pacman -S --noconfirm switch-dev
 
 COPY ./devkitpro-bazel/specs /specs
+COPY ./devkitpro-bazel/patches /patches

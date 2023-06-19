@@ -14,7 +14,7 @@
 #include "al/util/LiveActorUtil.h"
 #include "algorithms/CaptureTypes.h"
 #include "logger.hpp"
-#include "actors/PuppetActor.h"
+#include "puppets/PuppetActor.h"
 #include "math/seadQuat.h"
 #include "math/seadVector.h"
 #include "server/gamemode/GameModeManager.hpp"

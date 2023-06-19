@@ -4,7 +4,7 @@
 #include "sead/container/seadPtrArray.h"
 #include "sead/prim/seadSafeString.hpp"
 #include "logger.hpp"
-#include "actors/PuppetActor.h"
+#include "puppets/PuppetActor.h"
 
 class PuppetHolder { 
     public:

@@ -1,5 +1,6 @@
 #include "server/capturetheflag/CaptureTheFlagMode.hpp"
 #include <cmath>
+#include <numbers>
 #include "al/async/FunctorV0M.hpp"
 #include "al/util.hpp"
 #include "al/util/ControllerUtil.h"
@@ -437,7 +438,7 @@ FlagTeam CaptureTheFlagMode::getTeamSide(sead::Vector3f const& pos, BorderTransf
     auto relativePos = pos - borderOrigin;
     relativePos.normalize();
 
-    constexpr float DEGREES_TO_RADIANS = 180.f / M_PI;
+    constexpr float DEGREES_TO_RADIANS = 180.f / std::numbers::pi_v<float>;
     sead::Vector3f borderPlaneNormal(-0.71,0,-0.71); // Default volleyball net rotation, about 45* offset the z-axis
 
     return borderPlaneNormal.dot(relativePos) > 0 ? FlagTeam::RED : FlagTeam::BLUE;
