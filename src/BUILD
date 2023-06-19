@@ -4,8 +4,6 @@ dkp_cc_binary(
     name = "hello_world",
     srcs = ["hello_world.cpp"],
     deps = ["@devkitpro_sys//:libnx"],
-    # switch_specs = "//specs:smo_switch_specs",
-    # switch_linker_scripts = ["//specs:smo_switch_linker_scripts"],
 )
 
 dkp_nacp(

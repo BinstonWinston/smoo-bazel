@@ -7,3 +7,5 @@ RUN apt-get update -y && \
     yes "Y" | ./install-devkitpro-pacman
 
 RUN dkp-pacman -S --noconfirm switch-dev
+
+COPY ./devkitpro-bazel/specs /specs

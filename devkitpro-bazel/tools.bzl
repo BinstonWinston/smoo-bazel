@@ -1,61 +1,38 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 
-def _dkp_cc_binary_impl(ctx):
-    out_binary = ctx.actions.declare_file("%s" % ctx.attr.name)
-    cc_args = [
-        "-march=armv8-a+crc+crypto",
-        "-mtune=cortex-a57",
-        "-mtp=soft",
-        "-fPIE",
-        "-ftls-model=local-exec",
-        "-g",
-        "-Wall",
-        "-O2",
-        "-ffunction-sections",
-        "-fno-rtti",
-        "-fno-exceptions"
-    ]
-    linker_args = [
-        "-Wl,-spec=`pwd`/" + ctx.files.switch_specs[0].path,
-        # "-Wl,-Map,$(notdir $*.map)"
-        # "-Wl,--version-script=$(TOPDIR)/exported.txt",
-        "-Wl,-init=__custom_init -Wl,-fini=__custom_fini -nostdlib",
-    ]
-    # for i in range(len(linker_args)):
-    #     linker_args[i] = "-Wl," + linker_args[i]
-    src_files = []
-    for file in ctx.files.srcs:
-        src_files.append(file.path)
-    lib_files = []
-    for file in ctx.attr.deps:
-        print(file[CcInfo].to_json())
-        lib_files.append(file.path)
-    print(lib_files)
-    ctx.actions.run_shell(
-        inputs = ctx.files.srcs + ctx.files.switch_specs + ctx.files.switch_linker_scripts,
-        outputs = [out_binary],
-        progress_message = "Creating dkp_cc_binary %s" % ctx.label.name,
-        # $(CC)
-        command = "/opt/devkitpro/devkitA64/bin/aarch64-none-elf-g++ %s %s %s -o '%s'" %
-                  (
-                  " ".join(cc_args),
-                  " ".join(linker_args),
-                  " ".join(lib_files),
-                  " ".join(src_files),
-                  out_binary.path),
+def dkp_cc_binary(name, srcs, deps=[], visibility=None):
+    cc_binary(
+        name = name,
+        srcs = srcs,
+        deps = deps,
+        copts = [
+            "-march=armv8-a+crc+crypto",
+            "-mtune=cortex-a57",
+            "-mtp=soft",
+            "-fPIE",
+            "-ftls-model=local-exec",
+            "-g",
+            "-Wall",
+            "-O2",
+            "-ffunction-sections",
+            "-fno-rtti",
+            "-fno-exceptions",
+        ],
+        linkopts = [
+            "-specs=/specs/switch.specs",
+            "-g",
+
+            "-march=armv8-a+crc+crypto",
+            "-mtune=cortex-a57",
+            "-mtp=soft",
+            "-fPIE",
+            "-ftls-model=local-exec",
+            # "-Wl,-Map,$(notdir $*.map)"
+            # "-Wl,--version-script=$(TOPDIR)/exported.txt",
+            "-Wl,-init=__custom_init -Wl,-fini=__custom_fini -nostdlib",
+        ],
+        exec_compatible_with = ["@devkitpro//devkitpro_toolchain:simple_cpp_toolchain"]
     )
-
-    return [DefaultInfo(files = depset([out_binary]))]
-
-dkp_cc_binary = rule(
-    implementation = _dkp_cc_binary_impl,
-    attrs = {
-        "srcs": attr.label_list(mandatory=True, allow_files=True),
-        "deps": attr.label_list(default=[]),
-        "switch_specs": attr.label(default="@devkitpro_sys//:default_switch_spec_file"),
-        "switch_linker_scripts": attr.label_list(default=[]),
-    }
-)
 
 def _nacp_impl(ctx):
     out_file = ctx.actions.declare_file("%s.nacp" % ctx.attr.name)
