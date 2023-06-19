@@ -553,6 +553,164 @@ compile_config = action_config(
     implies     = []
 )
 
+assemble_config = action_config(
+    action_name = ACTION_NAMES.assemble,
+    enabled     = False,
+    tools       = [
+        tool(
+            path                   = "/opt/devkitpro/devkitA64/bin/aarch64-none-elf-g++",
+            tool                   = None,
+            with_features          = [],
+            execution_requirements = []
+        )
+    ],
+    flag_sets   = [
+        flag_set(
+            actions       = [],
+            with_features = [],
+            flag_groups   = [
+                flag_group(
+                    flags = [
+                        "-include",
+                        "%{includes}"
+                    ],
+                    flag_groups = [],
+                    iterate_over = "includes",
+                    expand_if_available = "includes",
+                    expand_if_not_available = None,
+                    expand_if_true = None,
+                    expand_if_false = None,
+                    expand_if_equal = None
+                ),
+                flag_group(
+                    flags = [
+                        "-MD",
+                        "-MF",
+                        "%{dependency_file}",
+                    ],
+                    flag_groups = [],
+                    iterate_over = None,
+                    expand_if_available = "dependency_file",
+                    expand_if_not_available = None,
+                    expand_if_true = None,
+                    expand_if_false = None,
+                    expand_if_equal = None
+                ),
+                flag_group(
+                    flags = [
+                        "-frandom-seed=%{output_file}"
+                    ],
+                    flag_groups = [],
+                    iterate_over = None,
+                    expand_if_available = "output_file",
+                    expand_if_not_available = None,
+                    expand_if_true = None,
+                    expand_if_false = None,
+                    expand_if_equal = None
+                ),
+                flag_group(
+                    flags = [
+                        "-iquote",
+                        "%{quote_include_paths}"
+                    ],
+                    flag_groups = [],
+                    iterate_over = "quote_include_paths",
+                    expand_if_available = "quote_include_paths",
+                    expand_if_not_available = None,
+                    expand_if_true = None,
+                    expand_if_false = None,
+                    expand_if_equal = None
+                ),
+                flag_group(
+                    flags = [
+                        "-isystem",
+                        "%{system_include_paths}"
+                    ],
+                    flag_groups = [],
+                    iterate_over = "system_include_paths",
+                    expand_if_available = "system_include_paths",
+                    expand_if_not_available = None,
+                    expand_if_true = None,
+                    expand_if_false = None,
+                    expand_if_equal = None
+                ),
+                flag_group(
+                    flags = [
+                        "-I",
+                        "%{include_paths}"
+                    ],
+                    flag_groups = [],
+                    iterate_over = "include_paths",
+                    expand_if_available = "include_paths",
+                    expand_if_not_available = None,
+                    expand_if_true = None,
+                    expand_if_false = None,
+                    expand_if_equal = None
+                ),
+                flag_group(
+                    flags = [
+                        "-D",
+                        "%{preprocessor_defines}"
+                    ],
+                    flag_groups = [],
+                    iterate_over = "preprocessor_defines",
+                    expand_if_available = "preprocessor_defines",
+                    expand_if_not_available = None,
+                    expand_if_true = None,
+                    expand_if_false = None,
+                    expand_if_equal = None
+                ),
+                flag_group(
+                    flags = [
+                        "-c", # Stop after assembling object files.
+                        "%{source_file}", # Compilation occurs for a
+                                            # single input file at a time.
+                        "-o",
+                        "%{output_file}"
+                    ],
+                    flag_groups = [],
+                    iterate_over = None,
+                    expand_if_available = "source_file",
+                    expand_if_not_available = None,
+                    expand_if_true = None,
+                    expand_if_false = None,
+                    expand_if_equal = None
+                ),
+                flag_group(
+                    flags = [
+                        "-U_FORTIFY_SOURCE",
+                        "-fstack-protector",
+                        "-Wall",
+                        "-Wunused-but-set-parameter",
+                        "-fno-omit-frame-pointer",
+                        "-fno-canonical-system-headers"
+                    ],
+                    flag_groups = [],
+                    iterate_over = None,
+                    expand_if_available = None,
+                    expand_if_not_available = None,
+                    expand_if_true = None,
+                    expand_if_false = None,
+                    expand_if_equal = None
+                ),
+                flag_group(
+                    flags = [
+                        "%{user_compile_flags}",
+                    ],
+                    flag_groups = [],
+                    iterate_over = "user_compile_flags",
+                    expand_if_available = "user_compile_flags",
+                    expand_if_not_available = None,
+                    expand_if_true = None,
+                    expand_if_false = None,
+                    expand_if_equal = None
+                )
+            ]
+        )
+    ],
+    implies     = []
+)
+
 link_executable_config = action_config(
     action_name = ACTION_NAMES.cpp_link_executable,
     enabled     = False,
@@ -721,6 +879,7 @@ features = [
 
 action_configs = [
     compile_config,
+    assemble_config,
     link_executable_config,
     link_dynamic_library_config,
     link_nodeps_dynamic_library_config,
