@@ -1,31 +1,28 @@
 load("@devkitpro//:tools.bzl", "dkp_cc_library", "dkp_nacp", "dkp_nro")
 
-dkp_cc_library(
-    name = "smoo_lib",
-    srcs = glob([
+src_files = glob([
         "**/*.cpp",
         "**/*.c",
         "**/*.s",
-    ]),
+    ])
+src_files.remove("main.cpp")
+dkp_cc_library(
+    name = "smoo_lib",
+    srcs = src_files,
     hdrs = glob([
         "**/*.h",
         "**/*.hpp",
     ]),
     includes = [
-        "./",
-        "./sead",
+        "./src",
+        "./src/sead",
     ],
     deps = ["@devkitpro_sys//:libnx"],
 )
 
 dkp_cc_library(
     name = "smoo",
-    # srcs = ["main.cpp"],
-    srcs = glob([
-        "**/*.cpp",
-        "**/*.c",
-        "**/*.s",
-    ]),
+    srcs = ["main.cpp"],
     hdrs = glob([
         "**/*.h",
         "**/*.hpp",
@@ -35,7 +32,7 @@ dkp_cc_library(
         "./src/sead",
     ],
     deps = [
-        # ":smoo_lib",
+        ":smoo_lib",
         "@devkitpro_sys//:libnx",
     ],
 )

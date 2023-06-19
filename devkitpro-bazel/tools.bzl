@@ -14,6 +14,11 @@ def _dkp_cc_library_impl(ctx):
 
     link_flags = "-specs=/specs/switch.specs -g -march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE -ftls-model=local-exec -Wl,-Map,/patches/maps/100/main.map -Wl,--version-script=/patches/exported.txt -Wl,-init=__custom_init -Wl,-fini=__custom_fini -nostdlib"
 
+    dep_files = ctx.files.deps
+    dep_paths = []
+    for dep_file in dep_files:
+        dep_paths.append(dep_file.path)
+
     obj_files = []
     obj_paths = []
     for src_file in ctx.files.srcs:
@@ -24,10 +29,11 @@ def _dkp_cc_library_impl(ctx):
         # Compile.
         ctx.actions.run_shell(
             outputs = [obj_file],
-            inputs = [src_file] + ctx.files.hdrs,
-            command = "{compiler} {copts} {cc_bin} -o {obj_file}".format(
+            inputs = [src_file] + ctx.files.hdrs + dep_files,
+            command = "{compiler} {copts} {lib_paths} {cc_bin} -o {obj_file}".format(
                 compiler = compiler_path,
                 copts = compile_flags,
+                lib_paths = ' '.join(dep_paths),
                 cc_bin = src_file.path,
                 obj_file = obj_file.path,
             ),
@@ -49,10 +55,10 @@ dkp_cc_library = rule(
     implementation = _dkp_cc_library_impl,
     fragments = ["cpp"],
     attrs = {
-        "srcs": attr.label_list(allow_files = True),
-        "hdrs": attr.label_list(allow_files = True),
-        "deps": attr.label_list(),
-        "includes": attr.string_list(),
+        "srcs": attr.label_list(mandatory = True, allow_files = True),
+        "hdrs": attr.label_list(default = [], allow_files = True),
+        "deps": attr.label_list(default = []),
+        "includes": attr.string_list(default = []),
     },
     outputs = {
         "elf": "%{name}.elf",
