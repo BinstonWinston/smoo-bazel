@@ -1,5 +1,20 @@
-FROM dazel/dazel:3.7.1
+FROM debian:buster-slim
 
+# From https://github.com/nadirizr/dazel/blob/master/Dockerfile
+ENV BAZEL_VERSION 6.2.1
+
+# Creating the man pages directory to deal with the slim variants not having it.
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
+    && echo "deb [arch=amd64] http://storage.googleapis.com/bazel-apt stable jdk1.8" > \
+    /etc/apt/sources.list.d/bazel.list \
+    && curl https://bazel.build/bazel-release.pub.gpg | apt-key add - \
+    && apt-get update && apt-get install -y --no-install-recommends bazel=${BAZEL_VERSION} \
+    && apt-get purge --auto-remove -y curl gnupg \
+    && rm -rf /etc/apt/sources.list.d/bazel.list \
+    && rm -rf /var/lib/apt/lists/*
+
+
+# Custom Docker image on top of dazel
 RUN apt-get update -y && \
     apt-get install -y wget && \
     wget https://apt.devkitpro.org/install-devkitpro-pacman && \

@@ -1,4 +1,4 @@
-load("@devkitpro//:tools.bzl", "dkp_cc_binary", "dkp_cc_library", "dkp_nacp", "dkp_nro")
+load("@devkitpro//:tools.bzl", "dkp_cc_library", "dkp_nacp", "dkp_nro")
 
 dkp_cc_library(
     name = "smoo_lib",
@@ -18,19 +18,21 @@ dkp_cc_library(
     deps = ["@devkitpro_sys//:libnx"],
 )
 
-dkp_cc_binary(
+dkp_cc_library(
     name = "smoo",
     # srcs = ["main.cpp"],
     srcs = glob([
         "**/*.cpp",
         "**/*.c",
-        "**/*.h",
-        "**/*.hpp",
         "**/*.s",
     ]),
+    hdrs = glob([
+        "**/*.h",
+        "**/*.hpp",
+    ]),
     includes = [
-        "./",
-        "./sead",
+        "./src",
+        "./src/sead",
     ],
     deps = [
         # ":smoo_lib",

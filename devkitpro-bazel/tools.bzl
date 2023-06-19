@@ -1,84 +1,64 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 
-def dkp_cc_binary(name, srcs, includes=[], deps=[], visibility=None):
-    cc_binary(
-        name = name,
-        srcs = srcs,
-        includes = includes,
-        deps = deps,
-        copts = [
-            "-D__SWITCH__",
-            "-DSWITCH",
-            "-DNNSDK",
-            "-DSMOVER=100",
-            "-std=c++20",
-            "-march=armv8-a+crc+crypto",
-            "-mtune=cortex-a57",
-            "-mtp=soft",
-            "-fPIE",
-            "-ftls-model=local-exec",
-            "-g",
-            "-Wall",
-            "-O2",
-            "-ffunction-sections",
-            "-fno-rtti",
-            "-fno-exceptions",
-        ],
-        linkopts = [
-            "-specs=/specs/switch.specs",
-            "-g",
+def _dkp_cc_library_impl(ctx):
+    # Adapted from https://github.com/jdtaylor7/bazel_blinky/blob/master/src/rules.bzl
+    toolchain_path = "@bazel_tools//tools/cpp:toolchain_type"
+    toolchain_provider = ctx.toolchains[toolchain_path].cc
 
-            "-march=armv8-a+crc+crypto",
-            "-mtune=cortex-a57",
-            "-mtp=soft",
-            "-fPIE",
-            "-ftls-model=local-exec",
-            "-Wl,-Map,/patches/maps/100/main.map",
-            "-Wl,--version-script=/patches/exported.txt",
-            "-Wl,-init=__custom_init",
-            "-Wl,-fini=__custom_fini",
-            "-nostdlib",
-        ],
-        exec_compatible_with = ["@devkitpro//devkitpro_toolchain:simple_cpp_toolchain"]
+    compiler_path = "/opt/devkitpro/devkitA64/bin/aarch64-none-elf-g++"
+    linker_path = "/opt/devkitpro/devkitA64/bin/aarch64-none-elf-g++"
+
+    compile_flags = "-c -gdwarf-2 -gstrict-dwarf -D__SWITCH__ -DSWITCH -DNNSDK -DSMOVER=100 -std=gnu++20 -march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE -ftls-model=local-exec -g -Wall -O3 -ffunction-sections -fno-rtti -fno-exceptions -Wno-invalid-offsetof -Wno-volatile -fno-rtti -fomit-frame-pointer -fno-exceptions -fno-asynchronous-unwind-tables -fno-unwind-tables"
+    for include_path in ctx.attr.includes:
+        compile_flags += ' -I{include_path}'.format(include_path = include_path)
+
+    link_flags = "-specs=/specs/switch.specs -g -march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE -ftls-model=local-exec -Wl,-Map,/patches/maps/100/main.map -Wl,--version-script=/patches/exported.txt -Wl,-init=__custom_init -Wl,-fini=__custom_fini -nostdlib"
+
+    obj_files = []
+    obj_paths = []
+    for src_file in ctx.files.srcs:
+        obj_file = ctx.actions.declare_file("%s.o" % src_file.basename)
+        obj_files.append(obj_file)
+        obj_paths.append(obj_file.path)
+
+        # Compile.
+        ctx.actions.run_shell(
+            outputs = [obj_file],
+            inputs = [src_file] + ctx.files.hdrs,
+            command = "{compiler} {copts} {cc_bin} -o {obj_file}".format(
+                compiler = compiler_path,
+                copts = compile_flags,
+                cc_bin = src_file.path,
+                obj_file = obj_file.path,
+            ),
+        )
+
+    # Link.
+    ctx.actions.run_shell(
+        outputs = [ctx.outputs.elf],
+        inputs = obj_files,
+        command = "{compiler} {linkopts} {obj_in} -o {elf_out}".format(
+            compiler = compiler_path,
+            linkopts = link_flags,
+            obj_in = ' '.join(obj_paths),
+            elf_out = ctx.outputs.elf.path,
+        )
     )
 
-def dkp_cc_library(name, srcs, hdrs, includes=[], deps=[], visibility=None):
-    cc_library(
-        name = name,
-        srcs = srcs,
-        hdrs = hdrs,
-        includes = includes,
-        deps = deps,
-        copts = [
-            "-DNNSDK",
-            "-std=c++20",
-            "-march=armv8-a+crc+crypto",
-            "-mtune=cortex-a57",
-            "-mtp=soft",
-            "-fPIE",
-            "-ftls-model=local-exec",
-            "-g",
-            "-Wall",
-            "-O2",
-            "-ffunction-sections",
-            "-fno-rtti",
-            "-fno-exceptions",
-        ],
-        linkopts = [
-            "-specs=/specs/switch.specs",
-            "-g",
-
-            "-march=armv8-a+crc+crypto",
-            "-mtune=cortex-a57",
-            "-mtp=soft",
-            "-fPIE",
-            "-ftls-model=local-exec",
-            # "-Wl,-Map,$(notdir $*.map)"
-            # "-Wl,--version-script=$(TOPDIR)/exported.txt",
-            "-Wl,-init=__custom_init -Wl,-fini=__custom_fini -nostdlib",
-        ],
-        exec_compatible_with = ["@devkitpro//devkitpro_toolchain:simple_cpp_toolchain"]
-    )
+dkp_cc_library = rule(
+    implementation = _dkp_cc_library_impl,
+    fragments = ["cpp"],
+    attrs = {
+        "srcs": attr.label_list(allow_files = True),
+        "hdrs": attr.label_list(allow_files = True),
+        "deps": attr.label_list(),
+        "includes": attr.string_list(),
+    },
+    outputs = {
+        "elf": "%{name}.elf",
+    },
+    toolchains = ["@bazel_tools//tools/cpp:toolchain_type"]
+)
 
 def _nacp_impl(ctx):
     out_file = ctx.actions.declare_file("%s.nacp" % ctx.attr.name)
