@@ -3,7 +3,7 @@
 #include "FunctorBase.h"
 #include "sead/basis/seadNew.h"
 #include "types.h"
-#include "nn.h"
+#include "nn/nn_all.h"
 
 namespace sead
 {

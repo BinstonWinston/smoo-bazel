@@ -1,4 +1,18 @@
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+def _dkp_header_only_cc_library_impl(ctx):
+    return [DefaultInfo(files = depset(ctx.files.srcs + ctx.files.deps))]
+
+
+dkp_header_only_cc_library = rule(
+    implementation = _dkp_header_only_cc_library_impl,
+    attrs = {
+        "srcs": attr.label_list(mandatory=True, allow_files=True),
+        "deps": attr.label_list(default=[]),
+    }
+)
+
+def _link_input_header_file(ctx, input_header_file):
+    header_file = ctx.actions.declare_file(input_header_file.path)
+    ctx.actions.symlink(output=header_file, target_file=input_header_file)
 
 def _dkp_cc_library_impl(ctx):
     # Adapted from https://github.com/jdtaylor7/bazel_blinky/blob/master/src/rules.bzl
@@ -17,6 +31,8 @@ def _dkp_cc_library_impl(ctx):
     dep_files = ctx.files.deps
     dep_paths = []
     for dep_file in dep_files:
+        if dep_file.extension != 'elf':
+            continue
         dep_paths.append(dep_file.path)
 
     obj_files = []
@@ -29,7 +45,7 @@ def _dkp_cc_library_impl(ctx):
         # Compile.
         ctx.actions.run_shell(
             outputs = [obj_file],
-            inputs = [src_file] + ctx.files.hdrs + dep_files,
+            inputs = [src_file] + ctx.files.private_hdrs + ctx.files.public_hdrs + dep_files,
             command = "{compiler} {copts} {lib_paths} {cc_bin} -o {obj_file}".format(
                 compiler = compiler_path,
                 copts = compile_flags,
@@ -51,12 +67,16 @@ def _dkp_cc_library_impl(ctx):
         )
     )
 
+    # Pass through public header files for targets that depend on this
+    return [DefaultInfo(files = depset([ctx.outputs.elf] + ctx.files.public_hdrs))]
+
 dkp_cc_library = rule(
     implementation = _dkp_cc_library_impl,
     fragments = ["cpp"],
     attrs = {
         "srcs": attr.label_list(mandatory = True, allow_files = True),
-        "hdrs": attr.label_list(default = [], allow_files = True),
+        "private_hdrs": attr.label_list(default = [], allow_files = True),
+        "public_hdrs": attr.label_list(default = [], allow_files = True),
         "deps": attr.label_list(default = []),
         "includes": attr.string_list(default = []),
     },

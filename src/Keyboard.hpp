@@ -5,6 +5,7 @@
 #include "al/async/FunctorV0M.hpp"
 
 #include "nn/swkbd/swkbd.h"
+#include "server/Hostname.hpp"
 
 #include "logger.hpp"
 

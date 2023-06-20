@@ -52,6 +52,7 @@
 
 #include "nn/account.h"
 
+#include "server/Hostname.hpp"
 #include "server/gamemode/GameModeBase.hpp"
 #include "server/gamemode/GameModeConfigMenu.hpp"
 #include "server/gamemode/GameModeInfoBase.hpp"

@@ -3,8 +3,8 @@
 #include <string>
 #include <cstring>
 #include "types.h"
-#include "nn.h"
-#include "sead/basis/seadNew.h"
+#include "nn/nn_all.h"
+// #include "sead/basis/seadNew.h"
 
 class SocketBase {
 
