@@ -1,31 +1,12 @@
 load("@devkitpro//:tools.bzl", "dkp_cc_library", "dkp_header_only_cc_library", "dkp_nacp", "dkp_nro")
 
-dkp_header_only_cc_library(
-    name = "types_lib",
-    srcs = ["types.h"],
-    visibility = ["//visibility:public"]
-)
-
-dkp_cc_library(
-    name = "helpers_lib",
-    srcs = ["helpers.cpp"],
-    public_hdrs = ["helpers.hpp"],
-    includes = [
-        "./src",
-        "./src/sead",
-    ],
-    deps = [
-        ":types_lib",
-        "//src/sead:sead",
-        "//src/al:al",
-        "@devkitpro_sys//:libnx",
-    ],
-    visibility = ["//visibility:public"]
-)
-
 dkp_cc_library(
     name = "smoo",
-    srcs = ["main.cpp"],
+    srcs = glob([
+        "**/*.c",
+        "**/*.cpp",
+        "**/*.s",
+    ]),
     public_hdrs = glob([
         "**/*.h",
         "**/*.hpp",
@@ -35,15 +16,17 @@ dkp_cc_library(
         "./src/sead",
     ],
     deps = [
-        "//src/sead:sead",
-        "//src/server:server_lib_no_emu",
         "@devkitpro_sys//:libnx",
     ],
 )
 
 dkp_cc_library(
     name = "smoo_emu",
-    srcs = ["main.cpp"],
+    srcs = glob([
+        "**/*.c",
+        "**/*.cpp",
+        "**/*.s",
+    ]),
     public_hdrs = glob([
         "**/*.h",
         "**/*.hpp",
@@ -53,8 +36,6 @@ dkp_cc_library(
         "./src/sead",
     ],
     deps = [
-        ":smoo_lib",
-        "//src/server:server_lib_emu",
         "@devkitpro_sys//:libnx",
     ],
 )
