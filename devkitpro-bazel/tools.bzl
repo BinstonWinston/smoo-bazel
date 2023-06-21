@@ -25,6 +25,7 @@ def _dkp_cc_library_impl(ctx):
     compile_flags = "-c -gdwarf-2 -gstrict-dwarf -D__SWITCH__ -DSWITCH -DNNSDK -DSMOVER=100 -std=gnu++20 -march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE -ftls-model=local-exec -g -Wall -O3 -ffunction-sections -fno-rtti -fno-exceptions -Wno-invalid-offsetof -Wno-volatile -fno-rtti -fomit-frame-pointer -fno-exceptions -fno-asynchronous-unwind-tables -fno-unwind-tables"
     for include_path in ctx.attr.includes:
         compile_flags += ' -I{include_path}'.format(include_path = include_path)
+    compile_flags += ' -DEMU={emu}'.format(emu = 1 if ctx.attr.emu else 0)
 
     link_flags = "-specs=/specs/switch.specs -g -march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE -ftls-model=local-exec -Wl,-Map,/patches/maps/100/main.map -Wl,--version-script=/patches/exported.txt -Wl,-init=__custom_init -Wl,-fini=__custom_fini -nostdlib"
 
@@ -79,6 +80,7 @@ dkp_cc_library = rule(
         "public_hdrs": attr.label_list(default = [], allow_files = True),
         "deps": attr.label_list(default = []),
         "includes": attr.string_list(default = []),
+        "emu": attr.bool(mandatory = True),
     },
     outputs = {
         "elf": "%{name}.elf",

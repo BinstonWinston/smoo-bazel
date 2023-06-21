@@ -15,6 +15,7 @@ dkp_cc_library(
         "./src",
         "./src/sead",
     ],
+    emu = False,
     deps = [
         "@devkitpro_sys//:libnx",
     ],
@@ -35,6 +36,7 @@ dkp_cc_library(
         "./src",
         "./src/sead",
     ],
+    emu = True,
     deps = [
         "@devkitpro_sys//:libnx",
     ],
