@@ -23,5 +23,12 @@ RUN apt-get update -y && \
 
 RUN dkp-pacman -S --noconfirm switch-dev
 
+RUN   apt-get  update       \
+    &&  apt-get  install  -y  \
+    python3                 \
+    python3-pip             \
+    &&  pip3  install  keystone-engine  \
+    ;
+
 COPY ./devkitpro-bazel/specs /specs
 COPY ./devkitpro-bazel/patches /patches

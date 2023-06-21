@@ -28,6 +28,7 @@ def _dkp_cc_library_impl(ctx):
     compile_flags += ' -DEMU={emu}'.format(emu = 1 if ctx.attr.emu else 0)
 
     link_flags = "-specs=/specs/switch.specs -g -march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE -ftls-model=local-exec -Wl,-Map,/patches/maps/100/main.map -Wl,--version-script=/patches/exported.txt -Wl,-init=__custom_init -Wl,-fini=__custom_fini -nostdlib"
+    link_flags += " -Xlinker -Map={output_map}".format(output_map = ctx.outputs.map.path)
 
     dep_files = ctx.files.deps
     dep_paths = []
@@ -58,7 +59,7 @@ def _dkp_cc_library_impl(ctx):
 
     # Link.
     ctx.actions.run_shell(
-        outputs = [ctx.outputs.elf],
+        outputs = [ctx.outputs.elf, ctx.outputs.map],
         inputs = obj_files,
         command = "{compiler} {linkopts} {obj_in} -o {elf_out}".format(
             compiler = compiler_path,
@@ -69,7 +70,7 @@ def _dkp_cc_library_impl(ctx):
     )
 
     # Pass through public header files for targets that depend on this
-    return [DefaultInfo(files = depset([ctx.outputs.elf] + ctx.files.public_hdrs))]
+    return [DefaultInfo(files = depset([ctx.outputs.elf, ctx.outputs.map] + ctx.files.public_hdrs))]
 
 dkp_cc_library = rule(
     implementation = _dkp_cc_library_impl,
@@ -84,6 +85,7 @@ dkp_cc_library = rule(
     },
     outputs = {
         "elf": "%{name}.elf",
+        "map": "%{name}.map",
     },
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"]
 )
@@ -138,4 +140,36 @@ dkp_nro = rule(
         "target": attr.label(mandatory=True),
         "nacp": attr.label(mandatory=True),
     }
+)
+
+def _ips_patch_impl(ctx):
+    gen_patch_script = ctx.files._gen_patch_script[0]
+    map_file = ctx.files.binary[1]
+    ctx.actions.run_shell(
+        inputs = [gen_patch_script, map_file],
+        outputs = [ctx.outputs.ips],
+        progress_message = "Creating IPS patch file %s" % ctx.label.name,
+        command = "python3 '%s' '%s' '%s' '%s'" %
+                  (
+                  gen_patch_script.path,
+                  ctx.attr.version,
+                  map_file.path,
+                  ctx.outputs.ips.path,
+                  ),
+    )
+
+    return [DefaultInfo(files = depset([ctx.outputs.ips]))]
+
+
+dkp_ips_patch = rule(
+    implementation = _ips_patch_impl,
+    attrs = {
+        "version": attr.string(mandatory=True),
+        "build_id": attr.string(mandatory=True),
+        "binary": attr.label(mandatory=True),
+        "_gen_patch_script": attr.label(default="//scripts:gen_patch"),
+    },
+    outputs = {
+        "ips": "%{build_id}.ips",
+    },
 )
