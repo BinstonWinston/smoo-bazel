@@ -90,61 +90,31 @@ dkp_cc_library = rule(
     toolchains = ["@bazel_tools//tools/cpp:toolchain_type"]
 )
 
-def _nacp_impl(ctx):
-    out_file = ctx.actions.declare_file("%s.nacp" % ctx.attr.name)
-    ctx.actions.run_shell(
-        inputs = [],
-        outputs = [out_file],
-        progress_message = "Creating NACP file %s" % ctx.label.name,
-        command = "/opt/devkitpro/tools/bin/nacptool --create '%s' '%s' '%s' '%s' --titleid='%s'" %
-                  (ctx.attr.nacp_name,
-                  ctx.attr.author,
-                  ctx.attr.version,
-                  out_file.path,
-                  ctx.attr.titleid),
-    )
-
-    return [DefaultInfo(files = depset([out_file]))]
-
-dkp_nacp = rule(
-    implementation = _nacp_impl,
-    attrs = {
-        "nacp_name": attr.string(mandatory=True),
-        "author": attr.string(mandatory=True),
-        "version": attr.string(mandatory=True),
-        "titleid": attr.string(mandatory=True),
-    }
-)
-
-
-def _nro_impl(ctx):
+def _nso_impl(ctx):
     in_elf_file = ctx.attr.target.files.to_list()[0]
-    in_nacp_file = ctx.attr.nacp.files.to_list()[0]
-    out_file = ctx.actions.declare_file("%s.nro" % ctx.attr.name)
+    out_file = ctx.actions.declare_file("%s.nso" % ctx.attr.name)
     ctx.actions.run_shell(
-        inputs = [in_elf_file, in_nacp_file,],
+        inputs = [in_elf_file],
         outputs = [out_file],
-        progress_message = "Creating NRO file %s" % ctx.label.name,
-        command = "/opt/devkitpro/tools/bin/elf2nro '%s' '%s' --nacp '%s'" %
+        progress_message = "Creating nso file %s" % ctx.label.name,
+        command = "/opt/devkitpro/tools/bin/elf2nso '%s' '%s'" %
                   (in_elf_file.path,
-                  out_file.path,
-                  in_nacp_file.path),
+                  out_file.path),
     )
 
     return [DefaultInfo(files = depset([out_file]))]
 
 
-dkp_nro = rule(
-    implementation = _nro_impl,
+dkp_nso = rule(
+    implementation = _nso_impl,
     attrs = {
         "target": attr.label(mandatory=True),
-        "nacp": attr.label(mandatory=True),
     }
 )
 
 def _ips_patch_impl(ctx):
     gen_patch_script = ctx.files._gen_patch_script[0]
-    map_file = ctx.files.binary[1]
+    map_file = ctx.files.binary[1] # Map file is second file output from dkp_cc_binary rule
     ctx.actions.run_shell(
         inputs = [gen_patch_script, map_file],
         outputs = [ctx.outputs.ips],
@@ -170,6 +140,53 @@ dkp_ips_patch = rule(
         "_gen_patch_script": attr.label(default="//scripts:gen_patch"),
     },
     outputs = {
-        "ips": "%{build_id}.ips",
+        "ips": "%{name}/%{build_id}.ips",
+    },
+)
+
+def _atmosphere_package_impl(ctx):
+    nso_file = ctx.files.nso[0]
+    ips_file = ctx.files.ips_patch[0]
+    in_romfs_dir = ctx.files.romfs[0]
+    atmosphere_dir = ctx.actions.declare_directory("atmosphere")
+    exefs_dir = ctx.actions.declare_directory("atmosphere/contents/{title_id}/exefs".format(title_id=ctx.attr.title_id))
+    out_romfs_dir = ctx.actions.declare_directory("atmosphere/contents/{title_id}/romfs".format(title_id=ctx.attr.title_id))
+    subsdk1_file = ctx.actions.declare_file("atmosphere/contents/{title_id}/exefs/subsdk1".format(title_id=ctx.attr.title_id))
+    ctx.actions.run_shell(
+        inputs = [nso_file, ips_file, in_romfs_dir],
+        outputs = [subsdk1_file, exefs_dir, out_romfs_dir, atmosphere_dir],
+        progress_message = "Creating Atmosphere package %s" % ctx.label.name,
+        command = "cp '%s' '%s' && cp -r '%s' '%s'" %
+                  (
+                  nso_file.path,
+                  subsdk1_file.path,
+                  in_romfs_dir.path,
+                  out_romfs_dir.path,
+                  ),
+    )
+    ctx.actions.run_shell(
+        inputs = [subsdk1_file, exefs_dir, out_romfs_dir, atmosphere_dir],
+        outputs = [ctx.outputs.tarball],
+        progress_message = "Compressing Atmosphere package %s" % ctx.label.name,
+        command = "tar -czf '%s' '%s'" %
+                  (
+                    ctx.outputs.tarball.path,
+                    atmosphere_dir.path,
+                  ),
+    )
+
+    return [DefaultInfo(files = depset([ctx.outputs.tarball]))]
+
+
+dkp_atmosphere_package = rule(
+    implementation = _atmosphere_package_impl,
+    attrs = {
+        "nso": attr.label(mandatory=True),
+        "ips_patch": attr.label(mandatory=True),
+        "title_id": attr.string(mandatory=True),
+        "romfs": attr.label(mandatory=True, allow_single_file=True),
+    },
+    outputs = {
+        "tarball": "%{name}.tar.gz",
     },
 )
