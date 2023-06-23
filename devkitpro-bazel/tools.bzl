@@ -168,10 +168,10 @@ def _atmosphere_package_impl(ctx):
         inputs = [subsdk1_file, exefs_dir, out_romfs_dir, atmosphere_dir],
         outputs = [ctx.outputs.tarball],
         progress_message = "Compressing Atmosphere package %s" % ctx.label.name,
-        command = "tar -czf '%s' '%s'" %
+        command = "tar -czf '%s' --dereference -C '%s' ." %
                   (
                     ctx.outputs.tarball.path,
-                    atmosphere_dir.path,
+                    atmosphere_dir.dirname, # Parent dir that atmosphere dir is in
                   ),
     )
 
