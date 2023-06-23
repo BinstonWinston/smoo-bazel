@@ -150,18 +150,21 @@ def _atmosphere_package_impl(ctx):
     in_romfs_dir = ctx.files.romfs[0]
     atmosphere_dir = ctx.actions.declare_directory("atmosphere")
     exefs_dir = ctx.actions.declare_directory("atmosphere/contents/{title_id}/exefs".format(title_id=ctx.attr.title_id))
+    exefs_patches_dir = ctx.actions.declare_directory("atmosphere/exefs_patches/StarlightBase")
     out_romfs_dir = ctx.actions.declare_directory("atmosphere/contents/{title_id}/romfs".format(title_id=ctx.attr.title_id))
     subsdk1_file = ctx.actions.declare_file("atmosphere/contents/{title_id}/exefs/subsdk1".format(title_id=ctx.attr.title_id))
     ctx.actions.run_shell(
         inputs = [nso_file, ips_file, in_romfs_dir],
-        outputs = [subsdk1_file, exefs_dir, out_romfs_dir, atmosphere_dir],
+        outputs = [subsdk1_file, exefs_dir, exefs_patches_dir, out_romfs_dir, atmosphere_dir],
         progress_message = "Creating Atmosphere package %s" % ctx.label.name,
-        command = "cp '%s' '%s' && cp -r '%s' '%s'" %
+        command = "cp {nso_file} {subsdk_file} && cp {in_ips} {exefs_patches_dir} && cp -r {in_romfs} {out_romfs}".format
                   (
-                  nso_file.path,
-                  subsdk1_file.path,
-                  in_romfs_dir.path,
-                  out_romfs_dir.path,
+                  nso_file = nso_file.path,
+                  subsdk_file = subsdk1_file.path,
+                  in_ips = ips_file.path,
+                  exefs_patches_dir = exefs_patches_dir.path,
+                  in_romfs = in_romfs_dir.path,
+                  out_romfs = out_romfs_dir.path,
                   ),
     )
     ctx.actions.run_shell(
