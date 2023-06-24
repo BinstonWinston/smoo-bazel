@@ -65,11 +65,6 @@ def main(args: List[str]):
         args += ['-o', f'{parsed_args.output}.ignore']
         # Generate linker map in place of original library output path so it won't be clobbered by bazel sandboxing
         args += ['-Xlinker', f'-Map={parsed_args.output}']
-    elif parsed_args.output.endswith('.so'):
-        print(f'Skipping .so output of {parsed_args.output}')
-        with open(parsed_args.output, 'w+') as f:
-            f.write('empty\n')
-            return
 
     subprocess.run([CC] + CC_FLAGS + LINKER_FLAGS + args)
 
