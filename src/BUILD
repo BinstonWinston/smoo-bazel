@@ -7,17 +7,19 @@ dkp_cc_library(
         "**/*.cpp",
         "**/*.s",
     ]),
-    public_hdrs = glob([
+    hdrs = glob([
         "**/*.h",
         "**/*.hpp",
     ]),
     includes = [
-        "./src",
-        "./src/sead",
+        ".",
+    ],
+    copts = [
+        "-I./src",
+        "-I./src/sead",
     ],
     emu = False,
     deps = [
-        "//proto:test2",
         "//proto:test_packet_cc_proto",
         "@devkitpro_sys//:libnx",
     ],
@@ -30,7 +32,7 @@ dkp_cc_library(
         "**/*.cpp",
         "**/*.s",
     ]),
-    public_hdrs = glob([
+    hdrs = glob([
         "**/*.h",
         "**/*.hpp",
     ]),
@@ -58,14 +60,14 @@ dkp_nso(
 
 dkp_ips_patch(
     name = "smoo_ips",
-    target = ":smoo",
+    linker_map = ":smoo_linker_map",
     version = "100",
     build_id = "3CA12DFAAF9C82DA064D1698DF79CDA1",
 )
 
 dkp_ips_patch(
     name = "smoo_emu_ips",
-    target = ":smoo_emu",
+    linker_map = ":smoo_emu_linker_map",
     version = "100",
     build_id = "3CA12DFAAF9C82DA064D1698DF79CDA1",
 )

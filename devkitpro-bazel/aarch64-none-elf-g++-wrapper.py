@@ -1,3 +1,4 @@
+import argparse
 import subprocess
 import sys
 from typing import List
@@ -47,15 +48,23 @@ LINKER_FLAGS = [
     '-nostdlib',
 ]
 
+def parse_args(args: List[str]):
+    parser = argparse.ArgumentParser(
+                    prog='ProgramName',
+                    description='What the program does',
+                    epilog='Text at the bottom of help')
+    parser.add_argument('-o', '--output')
+    return parser.parse_known_intermixed_args(args)[0]
+
 def main(args: List[str]):
     print(f'g++ ARGS: {args}')
-    for arg in args:
-        if arg.endswith('.so'):
-            print(f'Skipping .so output of {arg}')
-            with open(arg, 'w+') as f:
-                f.write('empty\n')
+    parsed_args = parse_args(args)
+    if parsed_args.output.endswith('.so'):
+        print(f'Skipping .so output of {parsed_args.output}')
+        with open(parsed_args.output, 'w+') as f:
+            f.write('empty\n')
+            return
 
-    subprocess.run(['ls external'])
     subprocess.run([CC] + CC_FLAGS + LINKER_FLAGS + args)
 
 if __name__ == '__main__':
