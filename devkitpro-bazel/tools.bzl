@@ -1,18 +1,6 @@
 load("@rules_cc//cc:defs.bzl", "cc_library")
 load("@rules_cc//examples:experimental_cc_shared_library.bzl", "cc_shared_library")
 
-def _dkp_header_only_cc_library_impl(ctx):
-    return [DefaultInfo(files = depset(ctx.files.srcs + ctx.files.deps))]
-
-
-dkp_header_only_cc_library = rule(
-    implementation = _dkp_header_only_cc_library_impl,
-    attrs = {
-        "srcs": attr.label_list(mandatory=True, allow_files=True),
-        "deps": attr.label_list(default=[]),
-    }
-)
-
 def dkp_cc_library(name, srcs, emu, hdrs = [], includes = [], copts = [], deps = [], visibility = None):
     cc_library(
         name = "{name}_lib".format(name=name),
@@ -97,37 +85,57 @@ dkp_ips_patch = rule(
     },
 )
 
+def _copy_file(ctx, in_file, out_file):
+    ctx.actions.run_shell(
+        inputs = [in_file],
+        outputs = [out_file],
+        progress_message = "Copying {in_file} to {out_file}".format(in_file=in_file.path, out_file=out_file.path),
+        command = "mkdir -p `dirname {out_file}` && cp {in_file} {out_file}".format
+                (
+                in_file = in_file.path,
+                out_file = out_file.path,
+                ),
+    )
+
 def _atmosphere_package_impl(ctx):
     nso_file = ctx.files.nso[0]
     ips_file = ctx.files.ips_patch[0]
-    in_romfs_dir = ctx.files.romfs[0]
-    atmosphere_dir = ctx.actions.declare_directory("atmosphere")
-    exefs_dir = ctx.actions.declare_directory("atmosphere/contents/{title_id}/exefs".format(title_id=ctx.attr.title_id))
-    exefs_patches_dir = ctx.actions.declare_directory("atmosphere/exefs_patches/StarlightBase")
-    out_romfs_dir = ctx.actions.declare_directory("atmosphere/contents/{title_id}/romfs".format(title_id=ctx.attr.title_id))
-    subsdk1_file = ctx.actions.declare_file("atmosphere/contents/{title_id}/exefs/subsdk1".format(title_id=ctx.attr.title_id))
+    in_romfs = ctx.files.romfs
+
+    metadata_file = ctx.actions.declare_file('atmosphere/metadata.txt')
+    out_romfs_relative_path = 'atmosphere/contents/{title_id}/romfs'.format(title_id=ctx.attr.title_id)
+    out_exefs_relative_path = 'atmosphere/contents/{title_id}/exefs'.format(title_id=ctx.attr.title_id)
+    subsdk1_file = ctx.actions.declare_file("{exefs_dir}/subsdk1".format(exefs_dir=out_exefs_relative_path))
+    out_ips_file = ctx.actions.declare_file("atmosphere/exefs_patches/StarlightBase/{build_id}.ips".format(build_id=ctx.attr.build_id))
+
     ctx.actions.run_shell(
-        inputs = [nso_file, ips_file, in_romfs_dir],
-        outputs = [subsdk1_file, exefs_dir, exefs_patches_dir, out_romfs_dir, atmosphere_dir],
-        progress_message = "Creating Atmosphere package %s" % ctx.label.name,
-        command = "cp {nso_file} {subsdk_file} && cp {in_ips} {exefs_patches_dir} && cp -r {in_romfs} {out_romfs}".format
-                  (
-                  nso_file = nso_file.path,
-                  subsdk_file = subsdk1_file.path,
-                  in_ips = ips_file.path,
-                  exefs_patches_dir = exefs_patches_dir.path,
-                  in_romfs = in_romfs_dir.path,
-                  out_romfs = out_romfs_dir.path,
-                  ),
+        inputs = [],
+        outputs = [metadata_file],
+        progress_message = "Creating Atmosphere directory",
+        command = "echo '' > {metadata_file}".format
+                (
+                metadata_file = metadata_file.path
+                ),
     )
+
+    _copy_file(ctx, nso_file, subsdk1_file)
+    _copy_file(ctx, ips_file, out_ips_file)
+
+    out_romfs_files = []
+    for romfs_file in in_romfs:
+        filepath_relative_to_romfs_root = romfs_file.path.split('romfs/')[-1]
+        out_romfs_file = ctx.actions.declare_file(out_romfs_relative_path + '/' + filepath_relative_to_romfs_root)
+        _copy_file(ctx, romfs_file, out_romfs_file)
+        out_romfs_files.append(out_romfs_file)
+
     ctx.actions.run_shell(
-        inputs = [subsdk1_file, exefs_dir, out_romfs_dir, atmosphere_dir],
+        inputs = [metadata_file, subsdk1_file, out_ips_file] + out_romfs_files,
         outputs = [ctx.outputs.tarball],
         progress_message = "Compressing Atmosphere package %s" % ctx.label.name,
-        command = "tar -czf '%s' --dereference -C '%s' ." %
+        command = "tar -czf '%s' --dereference -C `dirname '%s'` ." %
                   (
                     ctx.outputs.tarball.path,
-                    atmosphere_dir.dirname, # Parent dir that atmosphere dir is in
+                    metadata_file.dirname, # Atmosphere dir
                   ),
     )
 
@@ -140,7 +148,8 @@ dkp_atmosphere_package = rule(
         "nso": attr.label(mandatory=True),
         "ips_patch": attr.label(mandatory=True),
         "title_id": attr.string(mandatory=True),
-        "romfs": attr.label(mandatory=True, allow_single_file=True),
+        "romfs": attr.label(mandatory=True, allow_files=True),
+        "build_id": attr.string(mandatory=True),
     },
     outputs = {
         "tarball": "%{name}.tar.gz",

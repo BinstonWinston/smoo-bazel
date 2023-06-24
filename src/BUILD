@@ -1,4 +1,4 @@
-load("@devkitpro//:tools.bzl", "dkp_cc_library", "dkp_header_only_cc_library", "dkp_nso", "dkp_ips_patch", "dkp_atmosphere_package")
+load("@devkitpro//:tools.bzl", "dkp_cc_library", "dkp_nso", "dkp_ips_patch", "dkp_atmosphere_package")
 
 dkp_cc_library(
     name = "smoo",
@@ -77,7 +77,8 @@ dkp_atmosphere_package(
     nso = ":smoo_nso",
     ips_patch = ":smoo_ips",
     title_id = "0100000000010000",
-    romfs = "//:smoo_romfs",
+    romfs = "//romfs:smoo_romfs",
+    build_id = "3CA12DFAAF9C82DA064D1698DF79CDA1",
 )
 
 dkp_atmosphere_package(
@@ -85,11 +86,12 @@ dkp_atmosphere_package(
     nso = ":smoo_emu_nso",
     ips_patch = ":smoo_ips",
     title_id = "0100000000010000",
-    romfs = ":smoo_romfs",
+    romfs = "//romfs:smoo_romfs",
+    build_id = "3CA12DFAAF9C82DA064D1698DF79CDA1",
 )
 
 # dkp_yuzu_package(
 #     name = "smoo_yuzu",
 #     nso = ":smoo_emu_nso",
-#     romfs = ":smoo_romfs",
+#     romfs = "//romfs:smoo_romfs",
 # )
