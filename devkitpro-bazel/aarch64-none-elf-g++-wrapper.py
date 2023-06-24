@@ -48,28 +48,14 @@ LINKER_FLAGS = [
 ]
 
 def main(args: List[str]):
-    generate_map_file = '--special-dkp-output-map-file-instead-of-lib' in args
-    
-    print(args)
+    print(f'g++ ARGS: {args}')
+    for arg in args:
+        if arg.endswith('.so'):
+            print(f'Skipping .so output of {arg}')
+            with open(arg, 'w+') as f:
+                f.write('empty\n')
 
-    if generate_map_file:
-        output_file = None
-        for i in range(len(args)):
-            if args[i] == '-o':
-                output_file = args[i+1]
-
-        if output_file.endswith('.so') or output_file.endswith('.a'):
-            # Remove output arg and special arg
-            args = [arg for arg in args if arg not in [output_file, '-o', '--special-dkp-output-map-file-instead-of-lib']]
-            # Add output arg back in at some ignored filepath (will be deleted by bazel sandboxing)
-            args += ['-o', f'{output_file}.ignore']
-            # Add map output at original .so filepath so it isn't clobbered by bazel sandboxing
-            args += ['-Xlinker', f'-Map={output_file}']
-
-            print(f'Replacing output binary with linker map: {output_file}')
-
-            print(args)
-
+    subprocess.run(['ls external'])
     subprocess.run([CC] + CC_FLAGS + LINKER_FLAGS + args)
 
 if __name__ == '__main__':

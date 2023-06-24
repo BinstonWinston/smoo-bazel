@@ -12,7 +12,6 @@ dkp_cc_library(
         "**/*.hpp",
     ]),
     includes = [
-        ".",
         "./src",
         "./src/sead",
     ],
