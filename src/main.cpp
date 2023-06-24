@@ -37,7 +37,8 @@
 #include "server/capturetheflag/CaptureTheFlagMode.hpp"
 #include "actors/BorderActor.h"
 
-#include "test_packet.pb.h"
+// #include "test_packet.pb.h"
+#include "proto/test2.h"
 
 static int pInfSendTimer = 0;
 static int gameInfSendTimer = 0;

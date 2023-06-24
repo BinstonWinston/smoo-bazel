@@ -17,6 +17,7 @@ dkp_cc_library(
     ],
     emu = False,
     deps = [
+        "//proto:test2",
         "//proto:test_packet_cc_proto",
         "@devkitpro_sys//:libnx",
     ],

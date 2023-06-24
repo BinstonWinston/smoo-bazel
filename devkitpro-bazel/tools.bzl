@@ -19,8 +19,9 @@ SourceFiles = provider(
     },
 )
 
+# https://stackoverflow.com/a/57699683
 #add 'resources' ? if so _accumulate_transitive_config_files needs to check for dep in deps if ConfigFiles in dep
-SourceAttr = ["tars", "deps", "runtime_deps", "exports"]
+SourceAttr = ["tars", "deps", "resources", "runtime_deps", "exports"]
 
 def _accumulate_transitive_source_files(accumulated, deps):
     return depset(
@@ -101,30 +102,14 @@ def _dkp_cc_library_impl(ctx):
     link_flags = "-specs=/specs/switch.specs -g -march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE -ftls-model=local-exec -Wl,-Map,/patches/maps/100/main.map -Wl,--version-script=/patches/exported.txt -Wl,-init=__custom_init -Wl,-fini=__custom_fini -nostdlib"
     link_flags += " -Xlinker -Map={output_map}".format(output_map = ctx.outputs.map.path)
 
-    print(ctx.attr.deps[0].files)
-
-    include_deps = []
     for dep in ctx.attr.deps:
         compilation_context = dep[CcInfo].compilation_context
-        include_deps += compilation_context.system_includes.to_list()
         for include_path in compilation_context.system_includes.to_list():
             compile_flags += ' -isystem {include_path}'.format(include_path = include_path)
-        include_deps += compilation_context.quote_includes.to_list()
         for include_path in compilation_context.quote_includes.to_list():
             compile_flags += ' -iquote {include_path}'.format(include_path = include_path)
-        include_deps += compilation_context.includes.to_list()
         for include_path in compilation_context.includes.to_list():
             compile_flags += ' -I{include_path}'.format(include_path = include_path)
-    include_files = []
-    for include_dep in include_deps:
-        include_files += [Label(include_dep)]
-    include_deps = include_files
-
-    print(compile_flags)
-
-    dep_lib = ctx.attr.deps[0][CcInfo].linking_context
-    print(dep_lib)
-    print(dir(dep_lib))
 
     dep_files_without_shared_libs = []
     dep_lib_files = []
@@ -141,10 +126,13 @@ def _dkp_cc_library_impl(ctx):
 
     for include_path in ctx.attr.includes + include_paths:
         compile_flags += ' -I{include_path}'.format(include_path = include_path)
+    compile_flags += ' -I.'
 
-    my_deps = []
+    dep_files = []
     for dep in ctx.attr.deps:
-        my_deps += dep[SourceFiles].transitive_source_files.to_list()
+        dep_files += dep[SourceFiles].transitive_source_files.to_list()
+
+    print(dep_files)
 
     obj_files = []
     obj_paths = []
@@ -158,8 +146,8 @@ def _dkp_cc_library_impl(ctx):
         compile_args.add_all(compiler_options)
         ctx.actions.run_shell(
             outputs = [obj_file],
-            inputs = [src_file] + ctx.files.private_hdrs + ctx.files.public_hdrs + dep_files_without_shared_libs + my_deps,
-            command = "{compiler} {cc_flags} {src_file} -o {obj_file}".format(
+            inputs = [src_file] + ctx.files.private_hdrs + ctx.files.public_hdrs + dep_files_without_shared_libs + dep_files,
+            command = "find proto -name '*.h' && {compiler} {cc_flags} {src_file} -o {obj_file}".format(
                 compiler = compiler,
                 cc_flags = compile_flags,
                 src_file = src_file.path,
