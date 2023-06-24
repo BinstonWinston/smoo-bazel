@@ -31,6 +31,7 @@ def dkp_cc_library(name, srcs, emu, hdrs = [], includes = [], copts = [], deps =
         hdrs = hdrs,
         includes = includes,
         copts = copts,
+        linkopts = ['--special-link-opt-generate-linker-map'],
         defines = [
             "EMU={emu}".format(emu = 1 if (emu == True) else 0) # == True is intentional to type-check the boolean
         ],
@@ -65,7 +66,8 @@ dkp_nso = rule(
 
 def _ips_patch_impl(ctx):
     gen_patch_script = ctx.files._gen_patch_script[0]
-    map_file = ctx.files.linker_map[0]
+    print(ctx.files.linker_map)
+    map_file = ctx.files.linker_map[1] # Second file in cc_library rule output is .so and that is replaced to the linker map file by g++-wrapper.py
     ctx.actions.run_shell(
         inputs = [gen_patch_script, map_file],
         outputs = [ctx.outputs.ips],

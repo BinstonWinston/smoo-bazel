@@ -54,12 +54,18 @@ def parse_args(args: List[str]):
                     description='What the program does',
                     epilog='Text at the bottom of help')
     parser.add_argument('-o', '--output')
-    return parser.parse_known_intermixed_args(args)[0]
+    parser.add_argument('--special-link-opt-generate-linker-map', dest='generate_linker_map', action='store_true')
+    return parser.parse_known_intermixed_args(args)
 
 def main(args: List[str]):
-    print(f'g++ ARGS: {args}')
-    parsed_args = parse_args(args)
-    if parsed_args.output.endswith('.so'):
+    parsed_args, unparsed_args = parse_args(args)
+    if parsed_args.generate_linker_map:
+        args = unparsed_args
+        # Redirect linked library output to a new name that will be deleted by bazel sandboxing
+        args += ['-o', f'{parsed_args.output}.ignore']
+        # Generate linker map in place of original library output path so it won't be clobbered by bazel sandboxing
+        args += ['-Xlinker', f'-Map={parsed_args.output}']
+    elif parsed_args.output.endswith('.so'):
         print(f'Skipping .so output of {parsed_args.output}')
         with open(parsed_args.output, 'w+') as f:
             f.write('empty\n')
