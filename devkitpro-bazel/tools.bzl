@@ -1,3 +1,6 @@
+load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")   
+load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "CPP_COMPILE_ACTION_NAME", "CPP_LINK_DYNAMIC_LIBRARY_ACTION_NAME") 
+
 def _dkp_header_only_cc_library_impl(ctx):
     return [DefaultInfo(files = depset(ctx.files.srcs + ctx.files.deps))]
 
@@ -10,17 +13,39 @@ dkp_header_only_cc_library = rule(
     }
 )
 
-def _link_input_header_file(ctx, input_header_file):
-    header_file = ctx.actions.declare_file(input_header_file.path)
-    ctx.actions.symlink(output=header_file, target_file=input_header_file)
-
 def _dkp_cc_library_impl(ctx):
-    # Adapted from https://github.com/jdtaylor7/bazel_blinky/blob/master/src/rules.bzl
-    toolchain_path = "@bazel_tools//tools/cpp:toolchain_type"
-    toolchain_provider = ctx.toolchains[toolchain_path].cc
-
-    compiler_path = "/opt/devkitpro/devkitA64/bin/aarch64-none-elf-g++"
-    linker_path = "/opt/devkitpro/devkitA64/bin/aarch64-none-elf-g++"
+    cc_toolchain = find_cpp_toolchain(ctx)
+    feature_configuration = cc_common.configure_features(
+        ctx = ctx,
+        cc_toolchain = cc_toolchain,
+        unsupported_features = ctx.disabled_features,
+    )
+    compiler = cc_common.get_tool_for_action(
+        feature_configuration=feature_configuration,
+        action_name=CPP_COMPILE_ACTION_NAME
+    )
+    compile_variables = cc_common.create_compile_variables(
+        feature_configuration = feature_configuration,
+        cc_toolchain = cc_toolchain,
+    )
+    compiler_options = cc_common.get_memory_inefficient_command_line(
+        feature_configuration = feature_configuration,
+        action_name = CPP_COMPILE_ACTION_NAME,
+        variables = compile_variables,
+    )
+    linker = cc_common.get_tool_for_action(
+        feature_configuration=feature_configuration,
+        action_name=CPP_LINK_DYNAMIC_LIBRARY_ACTION_NAME
+    )
+    link_variables = cc_common.create_link_variables(
+        feature_configuration = feature_configuration,
+        cc_toolchain = cc_toolchain,
+    )
+    link_options = cc_common.get_memory_inefficient_command_line(
+        feature_configuration = feature_configuration,
+        action_name = CPP_LINK_DYNAMIC_LIBRARY_ACTION_NAME,
+        variables = compile_variables,
+    )
 
     compile_flags = "-c -gdwarf-2 -gstrict-dwarf -D__SWITCH__ -DSWITCH -DNNSDK -DSMOVER=100 -std=gnu++20 -march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE -ftls-model=local-exec -g -Wall -O3 -ffunction-sections -fno-rtti -fno-exceptions -Wno-invalid-offsetof -Wno-volatile -fno-rtti -fomit-frame-pointer -fno-exceptions -fno-asynchronous-unwind-tables -fno-unwind-tables"
     for include_path in ctx.attr.includes:
@@ -54,28 +79,33 @@ def _dkp_cc_library_impl(ctx):
         obj_paths.append(obj_file.path)
 
         # Compile.
-        ctx.actions.run_shell(
+        compile_args = ctx.actions.args()
+        compile_args.add_all(compiler_options)
+        ctx.actions.run(
             outputs = [obj_file],
             inputs = [src_file] + ctx.files.private_hdrs + ctx.files.public_hdrs + dep_files,
-            command = "{compiler} {copts} {lib_paths} {cc_bin} -o {obj_file}".format(
-                compiler = compiler_path,
-                copts = compile_flags,
-                lib_paths = ' '.join(dep_paths),
-                cc_bin = src_file.path,
-                obj_file = obj_file.path,
-            ),
+            executable = compiler,
+            arguments = [compile_args],
         )
 
     # Link.
-    ctx.actions.run_shell(
+    # ctx.actions.run_shell(
+    #     outputs = [ctx.outputs.elf, ctx.outputs.map],
+    #     inputs = obj_files,
+    #     command = "{compiler} {linkopts} {obj_in} -o {elf_out}".format(
+    #         compiler = compiler_path,
+    #         linkopts = link_flags,
+    #         obj_in = ' '.join(obj_paths),
+    #         elf_out = ctx.outputs.elf.path,
+    #     )
+    # )
+    link_args = ctx.actions.args()
+    link_args.add_all(link_options)
+    ctx.actions.run(
         outputs = [ctx.outputs.elf, ctx.outputs.map],
-        inputs = obj_files,
-        command = "{compiler} {linkopts} {obj_in} -o {elf_out}".format(
-            compiler = compiler_path,
-            linkopts = link_flags,
-            obj_in = ' '.join(obj_paths),
-            elf_out = ctx.outputs.elf.path,
-        )
+        inputs = [obj_file] + dep_files,
+        executable = linker,
+        arguments = [link_args],
     )
 
     # Pass through public header files for targets that depend on this
@@ -123,7 +153,7 @@ dkp_nso = rule(
 
 def _ips_patch_impl(ctx):
     gen_patch_script = ctx.files._gen_patch_script[0]
-    map_file = ctx.files.linker_map[0]
+    map_file = ctx.files.target[1] # Map file is second output from dkp_cc_binary rule
     ctx.actions.run_shell(
         inputs = [gen_patch_script, map_file],
         outputs = [ctx.outputs.ips],
@@ -145,7 +175,7 @@ dkp_ips_patch = rule(
     attrs = {
         "version": attr.string(mandatory=True),
         "build_id": attr.string(mandatory=True),
-        "linker_map": attr.label(mandatory=True),
+        "target": attr.label(mandatory=True),
         "_gen_patch_script": attr.label(default="//scripts:gen_patch"),
     },
     outputs = {

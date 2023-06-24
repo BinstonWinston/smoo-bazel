@@ -242,6 +242,7 @@ if len(sys.argv) != 4:
 buildVersion = sys.argv[1]
 initConfig()
 SLMapFilePath = sys.argv[2]
+print(SLMapFilePath)
 with open(SLMapFilePath, 'r') as f:
     SLMapFile = f.read()
 

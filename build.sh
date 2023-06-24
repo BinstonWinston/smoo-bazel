@@ -10,4 +10,5 @@ dazel build \
     --verbose_failures \
     --sandbox_debug \
     --experimental_ui_max_stdouterr_bytes=10048576 \
-    //src:smoo_switch
+    --action_env=SHIT=$(date -Ins) \
+    //src:smoo_ips

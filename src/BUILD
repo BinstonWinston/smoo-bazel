@@ -1,78 +1,48 @@
 load("@devkitpro//:tools.bzl", "dkp_cc_library", "dkp_header_only_cc_library", "dkp_nso", "dkp_ips_patch", "dkp_atmosphere_package")
 
-cc_library(
-    name = "smoo_lib",
-    srcs = glob([
-        "**/*.c",
-        "**/*.cpp",
-        "**/*.s",
-    ]),
-    hdrs = glob([
-        "**/*.h",
-        "**/*.hpp",
-    ]),
-    includes = ["."],
-    copts = [
-        "-I./src",
-        "-I./src/sead",
-    ],
-    defines = [
-        "EMU=0",
-    ],
-    deps = [
-        "//proto:test_packet_cc_proto",
-        "@devkitpro_sys//:libnx",
-    ],
-)
-
-cc_library(
-    name = "smoo_emu_lib",
-    srcs = glob([
-        "**/*.c",
-        "**/*.cpp",
-        "**/*.s",
-    ]),
-    hdrs = glob([
-        "**/*.h",
-        "**/*.hpp",
-    ]),
-    includes = ["."],
-    copts = [
-        "-I./src",
-        "-I./src/sead",
-    ],
-    defines = [
-        "EMU=1",
-    ],
-    deps = [
-        "//proto:test_packet_cc_proto",
-        "@devkitpro_sys//:libnx",
-    ],
-)
-
-cc_shared_library(
+dkp_cc_library(
     name = "smoo",
-    deps = [":smoo_lib"],
-)
-
-cc_shared_library(
-    name = "smoo_map",
-    deps = [":smoo_lib"],
-    user_link_flags = [
-        "--special-dkp-output-map-file-instead-of-shared-lib",
+    srcs = glob([
+        "**/*.c",
+        "**/*.cpp",
+        "**/*.s",
+    ]),
+    public_hdrs = glob([
+        "**/*.h",
+        "**/*.hpp",
+    ]),
+    includes = [
+        ".",
+        "./src",
+        "./src/sead",
+    ],
+    emu = False,
+    deps = [
+        "//proto:test_packet_cc_proto",
+        "@devkitpro_sys//:libnx",
     ],
 )
 
-cc_shared_library(
+dkp_cc_library(
     name = "smoo_emu",
-    deps = [":smoo_emu_lib"],
-)
-
-cc_shared_library(
-    name = "smoo_emu_map",
-    deps = [":smoo_emu_lib"],
-    user_link_flags = [
-        "--special-dkp-output-map-file-instead-of-shared-lib",
+    srcs = glob([
+        "**/*.c",
+        "**/*.cpp",
+        "**/*.s",
+    ]),
+    public_hdrs = glob([
+        "**/*.h",
+        "**/*.hpp",
+    ]),
+    includes = [
+        ".",
+        "./src",
+        "./src/sead",
+    ],
+    emu = True,
+    deps = [
+        "//proto:test_packet_cc_proto",
+        "@devkitpro_sys//:libnx",
     ],
 )
 
@@ -88,14 +58,14 @@ dkp_nso(
 
 dkp_ips_patch(
     name = "smoo_ips",
-    linker_map = ":smoo_map",
+    target = ":smoo",
     version = "100",
     build_id = "3CA12DFAAF9C82DA064D1698DF79CDA1",
 )
 
 dkp_ips_patch(
     name = "smoo_emu_ips",
-    linker_map = ":smoo_emu_map",
+    target = ":smoo_emu",
     version = "100",
     build_id = "3CA12DFAAF9C82DA064D1698DF79CDA1",
 )
