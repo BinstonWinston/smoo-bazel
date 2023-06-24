@@ -33,7 +33,8 @@ def _dkp_cc_library_impl(ctx):
     dep_files = ctx.files.deps
     dep_paths = []
     for dep_file in dep_files:
-        if dep_file.extension != 'elf':
+        print(dep_file)
+        if dep_file.extension not in ['elf', 'cc']: # Include cc for protobuf files
             continue
         dep_paths.append(dep_file.path)
 

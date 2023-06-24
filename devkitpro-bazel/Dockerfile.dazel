@@ -30,5 +30,12 @@ RUN   apt-get  update       \
     &&  pip3  install  keystone-engine  \
     ;
 
+# Fix path for compiling protobuf library needed for cc_proto_library
+RUN ln -s /opt/devkitpro/devkitA64/aarch64-none-elf/include/machine/endian.h /opt/devkitpro/devkitA64/aarch64-none-elf/include/endian.h
+
+COPY ./devkitpro-bazel/aarch64-none-elf-g++-wrapper.sh /opt/devkitpro/devkitA64/bin/
+COPY ./devkitpro-bazel/aarch64-none-elf-g++-wrapper.py /opt/devkitpro/devkitA64/bin/
+RUN chmod +x /opt/devkitpro/devkitA64/bin/aarch64-none-elf-g++-wrapper.sh
+
 COPY ./devkitpro-bazel/specs /specs
 COPY ./devkitpro-bazel/patches /patches

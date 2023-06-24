@@ -17,6 +17,7 @@ dkp_cc_library(
     ],
     emu = False,
     deps = [
+        "//proto:test_packet_cc_proto",
         "@devkitpro_sys//:libnx",
     ],
 )
@@ -74,11 +75,13 @@ dkp_atmosphere_package(
     romfs = "//:smoo_romfs",
 )
 
-# dkp_atmosphere_package(
-#     name = "smoo_ryujinx",
-#     nso = ":smoo_emu_nso",
-#     romfs = ":smoo_romfs",
-# )
+dkp_atmosphere_package(
+    name = "smoo_ryujinx",
+    nso = ":smoo_emu_nso",
+    ips_patch = ":smoo_ips",
+    title_id = "0100000000010000",
+    romfs = ":smoo_romfs",
+)
 
 # dkp_yuzu_package(
 #     name = "smoo_yuzu",
