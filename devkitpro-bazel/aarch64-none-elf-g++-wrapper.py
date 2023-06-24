@@ -48,12 +48,28 @@ LINKER_FLAGS = [
 ]
 
 def main(args: List[str]):
-    for arg in args:
-        if arg.endswith('.so'):
-            with open(arg, 'w+') as f:
-                f.write('empty\n')
-            return
+    generate_map_file = '--special-dkp-output-map-file-instead-of-shared-lib' in args
+    
+    output_so = None
+    if generate_map_file:
+        output_so = [arg for arg in args if arg.endswith('.so')][0]
+        # Remove output arg and special arg
+        args = [arg for arg in args if not arg.endswith('.so') and arg != '-o' and arg != '--special-dkp-output-map-file-instead-of-shared-lib']
+        # Add output arg back in at some ignored filepath (will be deleted by bazel sandboxing)
+        args += ['-o', f'{output_so}.ignore']
+        # Add map output at original .so filepath so it isn't clobbered by bazel sandboxing
+        args += ['-Xlinker', f'-Map={output_so}']
+
+    print(args)
+
     subprocess.run([CC] + CC_FLAGS + LINKER_FLAGS + args)
+
+    # if generate_map_file is not None:
+    #     with open(output_so, 'r') as f:
+    #         print("MYMAP")
+    #         print(f.read())
+    # else:
+    #     print("No map output")
 
 if __name__ == '__main__':
     main(sys.argv[1:])

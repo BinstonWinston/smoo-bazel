@@ -30,13 +30,21 @@ def _dkp_cc_library_impl(ctx):
     link_flags = "-specs=/specs/switch.specs -g -march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE -ftls-model=local-exec -Wl,-Map,/patches/maps/100/main.map -Wl,--version-script=/patches/exported.txt -Wl,-init=__custom_init -Wl,-fini=__custom_fini -nostdlib"
     link_flags += " -Xlinker -Map={output_map}".format(output_map = ctx.outputs.map.path)
 
+    print("hi %s" % ctx.attr.deps[0][CcInfo].compilation_context.direct_headers)
+
     dep_files = ctx.files.deps
     dep_paths = []
+    include_paths = []
     for dep_file in dep_files:
         print(dep_file)
-        if dep_file.extension not in ['elf', 'cc']: # Include cc for protobuf files
+        if dep_file.extension == 'h':
+            include_paths.append(dep_file.dirname)
+        if dep_file.extension not in ['elf', 'a']: # Include cc for protobuf files
             continue
         dep_paths.append(dep_file.path)
+
+    for include_path in ctx.attr.includes + include_paths:
+        compile_flags += ' -I{include_path}'.format(include_path = include_path)
 
     obj_files = []
     obj_paths = []
@@ -115,7 +123,7 @@ dkp_nso = rule(
 
 def _ips_patch_impl(ctx):
     gen_patch_script = ctx.files._gen_patch_script[0]
-    map_file = ctx.files.binary[1] # Map file is second file output from dkp_cc_binary rule
+    map_file = ctx.files.linker_map[0]
     ctx.actions.run_shell(
         inputs = [gen_patch_script, map_file],
         outputs = [ctx.outputs.ips],
@@ -137,7 +145,7 @@ dkp_ips_patch = rule(
     attrs = {
         "version": attr.string(mandatory=True),
         "build_id": attr.string(mandatory=True),
-        "binary": attr.label(mandatory=True),
+        "linker_map": attr.label(mandatory=True),
         "_gen_patch_script": attr.label(default="//scripts:gen_patch"),
     },
     outputs = {
