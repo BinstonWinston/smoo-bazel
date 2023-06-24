@@ -1,0 +1,21 @@
+// Root packet message that can contain any packet type
+syntax = "proto3";
+
+package packets;
+
+import "proto/packets/System.proto";
+import "proto/packets/CaptureTheFlag.proto";
+
+message Uid {
+    bytes uid = 1;
+}
+
+message Packet {
+  Uid player_id = 1;
+  oneof packet {
+    CaptureInf capture_inf = 2;
+    ctf.GameState ctf_game_state = 3;
+    ctf.PlayerTeamAssignment ctf_player_team_assignment = 4;
+    ctf.Win ctf_win = 5;
+  }
+}

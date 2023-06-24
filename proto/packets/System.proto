@@ -1,0 +1,83 @@
+// Base packets required for SMOO to function
+syntax = "proto3";
+
+package packets;
+
+import "google/protobuf/wrappers.proto";
+import "proto/util/Math.proto";
+
+message CaptureInf {
+    string hack_name = 1;
+}
+
+message ChangeStage {
+    string change_stage = 1;
+    string change_id = 2;
+    int32 scenario_num = 3;
+    int32 sub_scenario_type = 4;
+}
+
+message CostumeInf {
+    string body_model = 1;
+    string cap_model = 2;
+}
+
+message GameInf {
+    google.protobuf.BoolValue is_2d = 1; 
+    int32 scenario_num = 2;
+    string stage_name = 3;
+}
+
+message HackCapInf {
+    util.math.Vector3 cap_pos = 1;
+    util.math.Quaternion cap_quat = 2;
+    google.protobuf.BoolValue is_cap_visible = 3;
+    string cap_anim = 4;
+}
+
+message Init {
+    uint32 max_players = 1;
+}
+
+message PlayerConnect {
+    ConnectionTypes con_type = 1;
+    uint32 max_player_count = 2;
+    string client_name = 3;
+}
+
+message PlayerDC {
+
+}
+
+message AnimBlendWeights {
+    repeated float anim_blend_weights = 1;
+}
+
+message PlayerInf {
+    util.math.Vector3 player_pos = 1;
+    util.math.Quaternion player_rot = 2;
+    repeated float anim_blend_weights = 3;
+    PlayerAnimsType act_name = 4;
+    PlayerAnimsType sub_act_name = 5;
+}
+
+message ServerCommand {
+    string srv_cmd = 1;
+}
+
+message ShineCollect {
+    int32 shine_id = 1;
+    google.protobuf.BoolValue is_grand = 2;
+}
+
+enum TagUpdateType {
+    TIME = 0;
+    STATE = 1;
+}
+
+message TagInf {
+    TagUpdateType update_type = 1;
+    google.protobuf.BoolValue is_it = 2;
+    uint32 seconds = 3;
+    uint32 minutes = 4;
+};

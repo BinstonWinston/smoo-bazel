@@ -20,7 +20,7 @@ dkp_cc_library(
     ],
     emu = False,
     deps = [
-        "//proto:test_packet_cc_proto",
+        "//proto/packets:packets_cc_proto",
         "@devkitpro_sys//:libnx",
     ],
 )
@@ -43,7 +43,7 @@ dkp_cc_library(
     ],
     emu = True,
     deps = [
-        "//proto:test_packet_cc_proto",
+        "//proto/packets:packets_cc_proto",
         "@devkitpro_sys//:libnx",
     ],
 )

@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package packets.ctf;
+
+import "google/protobuf/wrappers.proto";
+import "proto/util/Math.proto";
+
+enum FlagTeam {
+    RED = 0;
+    BLUE = 1;
+}
+
+message GameState {
+    uint32 seconds = 1; 
+    uint32 minutes = 2; 
+    google.protobuf.BoolValue reset_game = 3; 
+}
+
+message PlayerTeamAssignment {
+    FlagTeam team = 1; 
+    google.protobuf.BoolValue should_hold_team_flag = 2; 
+}
+
+message Win {
+    FlagTeam winning_team = 1; 
+}
+
+message FlagHoldState {
+    google.protobuf.BoolValue is_held = 1;
+    FlagTeam flag_team = 2;
+}
+
+message FlagDroppedPosition {
+    FlagTeam flag_team = 1;
+    util.math.Vector3 pos = 2;
+    util.math.Quaternion rot = 3;
+    int32 scenario_num = 4;
+    string stage_name = 5;
+}
