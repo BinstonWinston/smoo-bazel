@@ -3,6 +3,7 @@
 #include "proto/packets/Packet.pb.h"
 
 #include <string>
+#include <string.h>
 
 #include "algorithms/PlayerAnims.h"
 #include "nn/account.h"
@@ -25,9 +26,15 @@ namespace packets {
     nn::account::Uid convert(packets::Uid const& value);
 
     template <s32 L>
-    std::string convert(sead::FixedSafeString<L> const& value);
+    std::string convert(sead::FixedSafeString<L> const& value) {
+        return std::string(value.cstr(), value.calcLength());
+    }
     template <s32 L>
-    sead::FixedSafeString<L> convert(std::string const& value);
+    sead::FixedSafeString<L> convert(std::string const& value) {
+        sead::FixedSafeString<L> s;
+        memcpy(s.cstr(), value.c_str(), std::min((s32)value.size(), L)); // Copy as many characters as will fit into the FixedSafeString capacity L
+        return s;
+    }
 
     int32_t convert(PlayerAnims::Type value);
     PlayerAnims::Type convert(int32_t value);
