@@ -61,11 +61,6 @@ enum SenderType {
     CLIENT
 };
 
-enum ConnectionTypes {
-    INIT,
-    RECONNECT
-};
-
 // unused
 /*
 static const char *senderNames[] = {

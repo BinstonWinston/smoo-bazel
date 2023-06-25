@@ -39,6 +39,11 @@ message Init {
     uint32 max_players = 1;
 }
 
+enum ConnectionTypes {
+    INIT = 0;
+    RECONNECT = 1;
+};
+
 message PlayerConnect {
     ConnectionTypes con_type = 1;
     uint32 max_player_count = 2;
@@ -57,8 +62,8 @@ message PlayerInf {
     util.math.Vector3 player_pos = 1;
     util.math.Quaternion player_rot = 2;
     repeated float anim_blend_weights = 3;
-    PlayerAnimsType act_name = 4;
-    PlayerAnimsType sub_act_name = 5;
+    int32 act_name = 4; // PlayerAnims::Type
+    int32 sub_act_name = 5; // PlayerAnims::Type
 }
 
 message ServerCommand {
