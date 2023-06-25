@@ -27,6 +27,11 @@ def dkp_cc_library(name, srcs, emu, hdrs = [], includes = [], copts = [], deps =
     )
     cc_shared_library(
         name = name,
+        user_link_flags = [
+            '--special-link-opt-whole-archive', # Include all .o files from static library {name}_lib so we don't get an empty .so shared library (see g++-wrapper.py for details)
+            '-L/opt/devkitpro/portlibs/switch/lib',
+            '-L/opt/devkitpro/libnx/lib',
+        ],
         deps = [":{name}_lib".format(name=name)],
     )
 
