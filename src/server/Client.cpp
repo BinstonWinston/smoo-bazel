@@ -517,7 +517,7 @@ void Client::sendPlayerInfPacket(const PlayerActorBase *playerBase, bool isYukim
     *packet->mutable_metadata()->mutable_user_id() = packets::convert(sInstance->mUserID);
 
     
-    if(sInstance->lastPlayerInfPacket != *packet) {
+    if(!google::protobuf::util::MessageDifferencer::Equals(sInstance->lastPlayerInfPacket, *packet)) {
         sInstance->lastPlayerInfPacket = *packet; // deref packet and store in client memory
         sInstance->mSocket->queuePacket(packet);
     } else {
@@ -544,29 +544,42 @@ void Client::sendHackCapInfPacket(const HackCap* hackCap) {
 
     // if cap is in flying state, send packet as often as this function is called
     if (isFlying) {
-        HackCapInf *packet = new HackCapInf();
-        packet.mUserID = sInstance->mUserID;
-        packet.capPos = al::getTrans(hackCap);
+        packets::system::HackCapInf hackCapInfPacket;
 
-        packet.isCapVisible = isFlying;
+        *hackCapInfPacket.mutable_cap_pos() = packets::convert(al::getTrans(hackCap));
 
-        packet.capQuat.x = hackCap->mJointKeeper->mJointRot.x;
-        packet.capQuat.y = hackCap->mJointKeeper->mJointRot.y;
-        packet.capQuat.z = hackCap->mJointKeeper->mJointRot.z;
-        packet.capQuat.w = hackCap->mJointKeeper->mSkew;
+        hackCapInfPacket.mutable_is_cap_visible()->set_value(isFlying);
 
-        strcpy(packet.capAnim, al::getActionName(hackCap));
+        hackCapInfPacket.mutable_cap_quat()->set_x(hackCap->mJointKeeper->mJointRot.x);
+        hackCapInfPacket.mutable_cap_quat()->set_y(hackCap->mJointKeeper->mJointRot.y);
+        hackCapInfPacket.mutable_cap_quat()->set_z(hackCap->mJointKeeper->mJointRot.z);
+        hackCapInfPacket.mutable_cap_quat()->set_w(hackCap->mJointKeeper->mSkew);
+
+        hackCapInfPacket.set_cap_anim(std::string(al::getActionName(hackCap)));
+
+        packets::system::SystemPacket systemPacket;
+        *systemPacket.mutable_hack_cap_inf() = hackCapInfPacket;
+        packets::Packet* packet = new packets::Packet();
+        *packet->mutable_system_packet() = systemPacket;
+        *packet->mutable_metadata()->mutable_user_id() = packets::convert(sInstance->mUserID);
 
         sInstance->mSocket->queuePacket(packet);
 
         sInstance->isSentHackInf = true;
 
     } else if (sInstance->isSentHackInf) { // if cap is not flying, check to see if previous function call sent a packet, and if so, send one final packet resetting cap data.
-        HackCapInf *packet = new HackCapInf();
-        packet.mUserID = sInstance->mUserID;
-        packet.isCapVisible = false;
-        packet.capPos = sead::Vector3f::zero;
-        packet.capQuat = sead::Quatf::unit;
+        packets::system::HackCapInf hackCapInfPacket;
+        hackCapInfPacket.mutable_is_cap_visible()->set_value(false);
+        *hackCapInfPacket.mutable_cap_pos() = packets::convert(sead::Vector3f::zero);
+        *hackCapInfPacket.mutable_cap_quat() = packets::convert(sead::Quatf::unit);
+
+        packets::system::SystemPacket systemPacket;
+        *systemPacket.mutable_hack_cap_inf() = hackCapInfPacket;
+        packets::Packet* packet = new packets::Packet();
+        *packet->mutable_system_packet() = systemPacket;
+        *packet->mutable_metadata()->mutable_user_id() = packets::convert(sInstance->mUserID);
+
+
         sInstance->mSocket->queuePacket(packet);
         sInstance->isSentHackInf = false;
     }
@@ -587,20 +600,26 @@ void Client::sendGameInfPacket(const PlayerActorHakoniwa* player, GameDataHolder
 
     sead::ScopedCurrentHeapSetter setter(sInstance->mHeap);
     
-    GameInf *packet = new GameInf();
-    packet.mUserID = sInstance->mUserID;
+    packets::system::GameInf gameInfPacket;
 
     if (player) {
-        packet.is2D = player->mDimKeeper->is2DModel;
+        gameInfPacket.mutable_is_2d()->set_value(player->mDimKeeper->is2DModel);
     } else {
-        packet.is2D = false;
+        gameInfPacket.mutable_is_2d()->set_value(false);
     }
 
-    packet.scenarioNo = holder.mData->mGameDataFile->getScenarioNo();
+    gameInfPacket.set_scenario_num(holder.mData->mGameDataFile->getScenarioNo());
 
-    strcpy(packet.stageName, GameDataFunction::getCurrentStageName(holder));
+    gameInfPacket.set_stage_name(std::string(GameDataFunction::getCurrentStageName(holder)));
 
-    if (*packet != sInstance->lastGameInfPacket && *packet != sInstance->emptyGameInfPacket) {
+    packets::system::SystemPacket systemPacket;
+    *systemPacket.mutable_game_inf() = gameInfPacket;
+    packets::Packet* packet = new packets::Packet();
+    *packet->mutable_system_packet() = systemPacket;
+    *packet->mutable_metadata()->mutable_user_id() = packets::convert(sInstance->mUserID);
+
+    if (!google::protobuf::util::MessageDifferencer::Equals(*packet, sInstance->lastGameInfPacket) 
+        && !google::protobuf::util::MessageDifferencer::Equals(*packet, sInstance->emptyGameInfPacket)) {
         sInstance->lastGameInfPacket = *packet;
         sInstance->mSocket->queuePacket(packet);
     } else {
@@ -622,18 +641,25 @@ void Client::sendGameInfPacket(GameDataHolderAccessor holder) {
 
     sead::ScopedCurrentHeapSetter setter(sInstance->mHeap);
     
-    GameInf *packet = new GameInf();
-    packet.mUserID = sInstance->mUserID;
+    packets::system::GameInf gameInfPacket;
 
-    packet.is2D = false;
+    gameInfPacket.mutable_is_2d()->set_value(false);
 
-    packet.scenarioNo = holder.mData->mGameDataFile->getScenarioNo();
+    gameInfPacket.set_scenario_num(holder.mData->mGameDataFile->getScenarioNo());
 
-    strcpy(packet.stageName, GameDataFunction::getCurrentStageName(holder));
+    gameInfPacket.set_stage_name(std::string(GameDataFunction::getCurrentStageName(holder)));
 
-    if (*packet != sInstance->emptyGameInfPacket) {
+    packets::system::SystemPacket systemPacket;
+    *systemPacket.mutable_game_inf() = gameInfPacket;
+    packets::Packet* packet = new packets::Packet();
+    *packet->mutable_system_packet() = systemPacket;
+    *packet->mutable_metadata()->mutable_user_id() = packets::convert(sInstance->mUserID);
+
+    if (!google::protobuf::util::MessageDifferencer::Equals(*packet, sInstance->emptyGameInfPacket)) {
         sInstance->lastGameInfPacket = *packet;
         sInstance->mSocket->queuePacket(packet);
+    } else {
+        sInstance->mHeap->free(packet); // free packet if we're not using it
     }
 }
 
@@ -659,15 +685,19 @@ void Client::sendTagInfPacket() {
 
     HideAndSeekInfo* curInfo = GameModeManager::instance()->getInfo<HideAndSeekInfo>();
 
-    TagInf *packet = new TagInf();
+    packets::system::TagInf tagInfPacket;
 
-    packet.mUserID = sInstance->mUserID;
+    tagInfPacket.mutable_is_it()->set_value(hsMode->isPlayerIt());
 
-    packet.isIt = hsMode->isPlayerIt();
+    tagInfPacket.set_minutes(curInfo->mHidingTime.mMinutes);
+    tagInfPacket.set_seconds(curInfo->mHidingTime.mSeconds);
+    tagInfPacket.set_update_type(packets::system::TagUpdateType::STATE | packets::system::TagUpdateType::TIME);
 
-    packet.minutes = curInfo->mHidingTime.mMinutes;
-    packet.seconds = curInfo->mHidingTime.mSeconds;
-    packet.updateType = static_cast<TagUpdateType>(TagUpdateType::STATE | TagUpdateType::TIME);
+    packets::system::SystemPacket systemPacket;
+    *systemPacket.mutable_tag_inf() = tagInfPacket;
+    packets::Packet* packet = new packets::Packet();
+    *packet->mutable_system_packet() = systemPacket;
+    *packet->mutable_metadata()->mutable_user_id() = packets::convert(sInstance->mUserID);
 
     sInstance->mSocket->queuePacket(packet);
 }
@@ -688,24 +718,41 @@ void Client::sendCostumeInfPacket(const char* body, const char* cap) {
     if (!strcmp(body, "") && !strcmp(cap, "")) { return; }
 
     sead::ScopedCurrentHeapSetter setter(sInstance->mHeap);
-    
-    CostumeInf *packet = new CostumeInf(body, cap);
-    packet.mUserID = sInstance->mUserID;
+
+    packets::system::CostumeInf costumeInfPacket;
+
+    costumeInfPacket.set_body_model(body);
+    costumeInfPacket.set_cap_model(cap);
+
+    packets::system::SystemPacket systemPacket;
+    *systemPacket.mutable_costume_inf() = costumeInfPacket;
+    packets::Packet* packet = new packets::Packet();
+    *packet->mutable_system_packet() = systemPacket;
+    *packet->mutable_metadata()->mutable_user_id() = packets::convert(sInstance->mUserID);
+
     sInstance->lastCostumeInfPacket = *packet;
     sInstance->mSocket->queuePacket(packet);
 }
 
-void Client::sendFlagHoldStatePacket(FlagHoldState const& packet) {
-    sInstance->lastFlagHoldStatePacket = packet;
-    sInstance->lastFlagHoldStatePacket.mUserID = sInstance->mUserID;
+void Client::sendFlagHoldStatePacket(packets::ctf::FlagHoldState const& flagHoldStatePacket) {
+    packets::ctf::CTFPacket ctfPacket;
+    *ctfPacket.mutable_flag_hold_state() = flagHoldStatePacket;
 
+    sInstance->lastFlagHoldStatePacket = packets::Packet();
+    *sInstance->lastFlagHoldStatePacket.mutable_ctf_packet() = ctfPacket;
+    *sInstance->lastFlagHoldStatePacket.mutable_metadata()->mutable_user_id() = packets::convert(sInstance->mUserID);
+    
     sInstance->mSocket->queuePacket(&sInstance->lastFlagHoldStatePacket);
 }
 
-void Client::sendCTFWinPacket(CaptureTheFlagWin const& packet) {
-    sInstance->lastCTFWinPacket = packet;
-    sInstance->lastCTFWinPacket.mUserID = sInstance->mUserID;
+void Client::sendCTFWinPacket(packets::ctf::Win const& winPacket) {
+    packets::ctf::CTFPacket ctfPacket;
+    *ctfPacket.mutable_win() = winPacket;
 
+    sInstance->lastCTFWinPacket = packets::Packet();
+    *sInstance->lastCTFWinPacket.mutable_ctf_packet() = ctfPacket;
+    *sInstance->lastCTFWinPacket.mutable_metadata()->mutable_user_id() = packets::convert(sInstance->mUserID);
+    
     sInstance->mSocket->queuePacket(&sInstance->lastCTFWinPacket);
 }
 
@@ -725,15 +772,29 @@ void Client::sendCaptureInfPacket(const PlayerActorHakoniwa* player) {
     sead::ScopedCurrentHeapSetter setter(sInstance->mHeap);
     
     if (sInstance->isClientCaptured && !sInstance->isSentCaptureInf) {
-        CaptureInf *packet = new CaptureInf();
-        packet.mUserID = sInstance->mUserID;
-        strcpy(packet.hackName, tryConvertName(player->mHackKeeper->getCurrentHackName()));
+        packets::system::CaptureInf captureInfPacket;
+
+        captureInfPacket.set_hack_name(tryConvertName(player->mHackKeeper->getCurrentHackName()));
+
+        packets::system::SystemPacket systemPacket;
+        *systemPacket.mutable_capture_inf() = captureInfPacket;
+        packets::Packet* packet = new packets::Packet();
+        *packet->mutable_system_packet() = systemPacket;
+        *packet->mutable_metadata()->mutable_user_id() = packets::convert(sInstance->mUserID);
+
         sInstance->mSocket->queuePacket(packet);
         sInstance->isSentCaptureInf = true;
     } else if (!sInstance->isClientCaptured && sInstance->isSentCaptureInf) {
-        CaptureInf *packet = new CaptureInf();
-        packet.mUserID = sInstance->mUserID;
-        strcpy(packet.hackName, "");
+        packets::system::CaptureInf captureInfPacket;
+
+        captureInfPacket.set_hack_name("");
+
+        packets::system::SystemPacket systemPacket;
+        *systemPacket.mutable_capture_inf() = captureInfPacket;
+        packets::Packet* packet = new packets::Packet();
+        *packet->mutable_system_packet() = systemPacket;
+        *packet->mutable_metadata()->mutable_user_id() = packets::convert(sInstance->mUserID);
+
         sInstance->mSocket->queuePacket(packet);
         sInstance->isSentCaptureInf = false;
     }
@@ -744,12 +805,12 @@ void Client::sendCaptureInfPacket(const PlayerActorHakoniwa* player) {
  */
 void Client::resendInitPackets() {
     // CostumeInfPacket
-    if (packets::convert(lastCostumeInfPacket.user_id()) == mUserID)) {
+    if (packets::convert(lastCostumeInfPacket.metadata().user_id()) == mUserID) {
         mSocket->queuePacket(&lastCostumeInfPacket);
     }
 
     // GameInfPacket
-    if (lastGameInfPacket != emptyGameInfPacket) {
+    if (!google::protobuf::util::MessageDifferencer::Equals(lastGameInfPacket, emptyGameInfPacket)) {
         mSocket->queuePacket(&lastGameInfPacket);
     }
 }
@@ -769,12 +830,17 @@ void Client::sendShineCollectPacket(int shineID) {
     sead::ScopedCurrentHeapSetter setter(sInstance->mHeap);
 
     if(sInstance->lastCollectedShine != shineID) {
-        ShineCollect *packet = new ShineCollect();
-        packet.mUserID = sInstance->mUserID;
-        packet.shineId = shineID;
+        packets::system::ShineCollect shineCollectPacket;
+
+        shineCollectPacket.set_shine_id(shineID);
+
+        packets::system::SystemPacket systemPacket;
+        *systemPacket.mutable_shine_collect() = shineCollectPacket;
+        packets::Packet* packet = new packets::Packet();
+        *packet->mutable_system_packet() = systemPacket;
+        *packet->mutable_metadata()->mutable_user_id() = packets::convert(sInstance->mUserID);
 
         sInstance->lastCollectedShine = shineID;
-
         sInstance->mSocket->queuePacket(packet);
     }
 }
@@ -795,8 +861,10 @@ void Client::updatePlayerInfo(packets::PacketMetadata const& packetMetadata, pac
         curInfo->isConnected = true;
     }
 
-    auto const playerRot = packets::convert(packet.playerPos);
+    auto const playerPos = packets::convert(packet.player_pos());
     curInfo->playerPos = playerPos;
+
+    auto const playerRot = packets::convert(packet.player_rot());
 
     // check if rotation is larger than zero and less than or equal to 1
     if(abs(playerRot.x) > 0.f || abs(playerRot.y) > 0.f || abs(playerRot.z) > 0.f || abs(playerRot.w) > 0.f) {
@@ -805,16 +873,16 @@ void Client::updatePlayerInfo(packets::PacketMetadata const& packetMetadata, pac
         }
     }
 
-        if (packet.act_name() != PlayerAnims::Type::Unknown) {
-            strcpy(curInfo->curAnimStr, PlayerAnims::FindStr(packet.act_name()));
+        if (packets::convert(packet.act_name()) != PlayerAnims::Type::Unknown) {
+            strcpy(curInfo->curAnimStr, PlayerAnims::FindStr(packets::convert(packet.act_name())));
             if (curInfo->curAnimStr[0] == '\0')
                 Logger::log("[ERROR] %s: actName was out of bounds: %d\n", __func__, packet.act_name());
         } else {
             strcpy(curInfo->curAnimStr, "Wait");
         }
 
-        if(packet.sub_act_name() != PlayerAnims::Type::Unknown) {
-            strcpy(curInfo->curSubAnimStr, PlayerAnims::FindStr(packet.sub_act_name()));
+        if(packets::convert(packet.sub_act_name()) != PlayerAnims::Type::Unknown) {
+            strcpy(curInfo->curSubAnimStr, PlayerAnims::FindStr(packets::convert(packet.sub_act_name())));
             if (curInfo->curSubAnimStr[0] == '\0')
                 Logger::log("[ERROR] %s: subActName was out of bounds: %d\n", __func__, packet.sub_act_name());
         } else {
@@ -824,7 +892,7 @@ void Client::updatePlayerInfo(packets::PacketMetadata const& packetMetadata, pac
     curInfo->curAnim = packets::convert(packet.act_name());
     curInfo->curSubAnim = packets::convert(packet.sub_act_name());
 
-    for (size_t i = 0; i < 6 && i < packet.anim_blend_weights()->Size(); i++)
+    for (size_t i = 0; i < 6 && i < packet.anim_blend_weights().size(); i++)
     {
         // weights can only be between 0 and 1
         if(packet.anim_blend_weights().at(i) >= 0.f && packet.anim_blend_weights().at(i) <= 1.f) {
