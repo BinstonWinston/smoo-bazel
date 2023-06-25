@@ -1,10 +1,13 @@
 #include "server/Client.hpp"
+
+#include <google/protobuf/util/message_differencer.h>
+
 #include "al/layout/SimpleLayoutAppearWaitEnd.h"
 #include "al/util/LiveActorUtil.h"
 #include "game/SaveData/SaveDataAccessFunction.h"
 #include "heap/seadHeapMgr.h"
 #include "logger.hpp"
-#include "packets/Packet.h"
+#include "packets/Packet.hpp"
 #include "server/hns/HideAndSeekMode.hpp"
 #include "server/capturetheflag/CaptureTheFlagMode.hpp"
 #include "server/capturetheflag/CaptureTheFlagConfigMenu.hpp"
@@ -123,11 +126,13 @@ void Client::restartConnection() {
 
     Logger::log("Sending Disconnect.\n");
 
-    PlayerDC *playerDC = new PlayerDC();
+    packets::system::SystemPacket systemPacket;
+    *systemPacket.mutable_player_dc() = packets::system::PlayerDC();
+    packets::Packet* packet = new packets::Packet();
+    *packet->mutable_metadata()->mutable_user_id() = packets::convert(sInstance->mUserID);
+    *packet->mutable_system_packet() = systemPacket;
 
-    playerDC->mUserID = sInstance->mUserID;
-
-    sInstance->mSocket->queuePacket(playerDC);
+    sInstance->mSocket->queuePacket(packet);
 
     if (sInstance->mSocket->closeSocket()) {
         Logger::log("Sucessfully Closed Socket.\n");
@@ -189,16 +194,16 @@ bool Client::startConnection() {
 
         while (waitingForInitPacket) {
 
-            Packet *curPacket = mSocket->tryGetPacket();
+            packets::Packet *curPacket = mSocket->tryGetPacket();
 
             if (curPacket) {
                 
-                if (curPacket->mType == PacketType::CLIENTINIT) {
-                    InitPacket* initPacket = (InitPacket*)curPacket;
+                if (curPacket->has_system_packet() && curPacket->system_packet().has_init()) {
+                    packets::system::Init const& initPacket = curPacket->system_packet().init();
 
-                    Logger::log("Server Max Player Size: %d\n", initPacket->maxPlayers);
+                    Logger::log("Server Max Player Size: %d\n", initPacket.max_players());
 
-                    maxPuppets = initPacket->maxPlayers - 1;
+                    maxPuppets = initPacket.max_players() - 1;
 
                     waitingForInitPacket = false;
                 }
@@ -329,92 +334,104 @@ void Client::readFunc() {
 
     while(mIsConnectionActive) {
 
-        Packet *curPacket = mSocket->tryGetPacket();  // will block until a packet has been recieved, or socket disconnected
+        packets::Packet *curPacket = mSocket->tryGetPacket();  // will block until a packet has been recieved, or socket disconnected
 
-        if (curPacket) {
+        if (!curPacket) { // if false, socket has errored or disconnected, so close the socket and end this thread.
+            Logger::log("Client Socket Encountered an Error! Errno: 0x%x\n", mSocket->socket_errno);
+        }
 
-            switch (curPacket->mType)
-            {
-            case PacketType::PLAYERINF:
-                updatePlayerInfo((PlayerInf*)curPacket);
-                break;
-            case PacketType::GAMEINF:
-                updateGameInfo((GameInf*)curPacket);
-                break;
-            case PacketType::HACKCAPINF:
-                updateHackCapInfo((HackCapInf *)curPacket);
-                break;
-            case PacketType::CAPTUREINF:                    
-                updateCaptureInfo((CaptureInf*)curPacket);
-                break;
-            case PacketType::PLAYERCON:
-                updatePlayerConnect((PlayerConnect*)curPacket);
+        auto const& packetMetadata = curPacket->metadata();
+
+        if (curPacket->has_system_packet()) {
+            auto const& systemPacket = curPacket->system_packet();
+            if (systemPacket.has_player_inf()) {
+                updatePlayerInfo(packetMetadata, systemPacket.player_inf());
+            }
+            else if (systemPacket.has_game_inf()) {
+                updateGameInfo(packetMetadata, systemPacket.game_inf());
+            }
+            else if (systemPacket.has_player_inf()) {
+                updatePlayerInfo(packetMetadata, systemPacket.player_inf());
+            }
+            else if (systemPacket.has_hack_cap_inf()) {
+                updateHackCapInfo(packetMetadata, systemPacket.hack_cap_inf());
+            }
+            else if (systemPacket.has_capture_inf()) {
+                updateCaptureInfo(packetMetadata, systemPacket.capture_inf());
+            }
+            else if (systemPacket.has_player_connect()) {
+                updatePlayerConnect(packetMetadata, systemPacket.player_connect());
 
                 // Send relevant info packets when another client is connected
 
-                if (lastGameInfPacket != emptyGameInfPacket) {
+                if (!google::protobuf::util::MessageDifferencer::Equals(lastGameInfPacket, emptyGameInfPacket)) {
                     // Assume game packets are empty from first connection
-                    if (lastGameInfPacket.mUserID != mUserID)
-                        lastGameInfPacket.mUserID = mUserID;
+                    if (packets::convert(lastGameInfPacket.metadata().user_id()) != mUserID) {
+                        *lastGameInfPacket.mutable_metadata()->mutable_user_id() = packets::convert(mUserID);
+                    }
                     mSocket->send(&lastGameInfPacket);
                 }
 
                 // No need to send player/costume packets if they're empty
-                if (lastPlayerInfPacket.mUserID == mUserID)
+                if (packets::convert(lastPlayerInfPacket.metadata().user_id()) == mUserID) {
                     mSocket->send(&lastPlayerInfPacket);
-                if (lastCostumeInfPacket.mUserID == mUserID)
+                }
+                if (packets::convert(lastCostumeInfPacket.metadata().user_id()) == mUserID) {
                     mSocket->send(&lastCostumeInfPacket);
-
-                break;
-            case PacketType::COSTUMEINF:
-                updateCostumeInfo((CostumeInf*)curPacket);
-                break;
-            case PacketType::SHINECOLL:
-                updateShineInfo((ShineCollect*)curPacket);
-                break;
-            case PacketType::PLAYERDC:
+                }
+            }
+            else if (systemPacket.has_costume_inf()) {
+                updateCostumeInfo(packetMetadata, systemPacket.costume_inf());
+            }
+            else if (systemPacket.has_shine_collect()) {
+                updateShineInfo(packetMetadata, systemPacket.shine_collect());
+            }
+            else if (systemPacket.has_player_dc()) {
                 Logger::log("Received Player Disconnect!\n");
-                curPacket->mUserID.print();
-                disconnectPlayer((PlayerDC*)curPacket);
-                break;
-            case PacketType::TAGINF:
-                updateTagInfo((TagInf*)curPacket);
-                break;
-            case PacketType::CHANGESTAGE:
-                sendToStage((ChangeStagePacket*)curPacket);
-                break;
-            case PacketType::CLIENTINIT: {
-                InitPacket* initPacket = (InitPacket*)curPacket;
-                Logger::log("Server Max Player Size: %d\n", initPacket->maxPlayers);
-                maxPuppets = initPacket->maxPlayers - 1;
-                break;
+                packets::convert(packetMetadata.user_id()).print();
+                disconnectPlayer(packetMetadata, systemPacket.player_dc());
             }
-            case PacketType::CAPTURE_THE_FLAG_PLAYER_TEAM_ASSIGNMENT:
-                updateCTFPlayerTeamAssignment(reinterpret_cast<CaptureTheFlagPlayerTeamAssignment*>(curPacket));
-                break;
-            case PacketType::CAPTURE_THE_FLAG_GAME_STATE:
-                updateCTFGameState(reinterpret_cast<CaptureTheFlagGameState*>(curPacket));
-                break;
-            case PacketType::FLAG_HOLD_STATE:
-                updateCTFFlagHoldState(reinterpret_cast<FlagHoldState*>(curPacket));
-                break;
-            case PacketType::FLAG_DROPPED_POSITION:
-                updateCTFFlagDroppedPosition(reinterpret_cast<FlagDroppedPosition*>(curPacket));
-                break;
-            case PacketType::CAPTURE_THE_FLAG_WIN:
-                updateCTFWinState(reinterpret_cast<CaptureTheFlagWin*>(curPacket));
-                break;
-            default:
+            else if (systemPacket.has_tag_inf()) {
+                updateTagInfo(packetMetadata, systemPacket.tag_inf());
+            }
+            else if (systemPacket.has_change_stage()) {
+                sendToStage(packetMetadata, systemPacket.change_stage());
+            }
+            else if (systemPacket.has_init()) {
+                packets::system::Init const& initPacket = systemPacket.init();
+                Logger::log("Server Max Player Size: %d\n", initPacket.max_players());
+                maxPuppets = initPacket.max_players() - 1;
+            }
+            else {
                 Logger::log("Discarding Unknown Packet Type.\n");
-                break;
             }
-
-            mHeap->free(curPacket);
-
-        }else { // if false, socket has errored or disconnected, so close the socket and end this thread.
-            Logger::log("Client Socket Encountered an Error! Errno: 0x%x\n", mSocket->socket_errno);
+        }
+        else if (curPacket->has_ctf_packet()) {
+            packets::ctf::CTFPacket const& ctfPacket = curPacket->ctf_packet();
+            if (ctfPacket.has_player_team_assignment()) {
+                updateCTFPlayerTeamAssignment(packetMetadata, ctfPacket.player_team_assignment());
+            }
+            else if (ctfPacket.has_game_state()) {
+                updateCTFGameState(packetMetadata, ctfPacket.game_state());
+            }
+            else if (ctfPacket.has_flag_hold_state()) {
+                updateCTFFlagHoldState(packetMetadata, ctfPacket.flag_hold_state());
+            }
+            else if (ctfPacket.has_flag_dropped_position()) {
+                updateCTFFlagDroppedPosition(packetMetadata, ctfPacket.flag_dropped_position());
+            }
+            else if (ctfPacket.has_win()) {
+                updateCTFWinState(packetMetadata, ctfPacket.win());
+            }
+            else {
+                Logger::log("Discarding Unknown Packet Type.\n");
+            }
+        }
+        else {
+            Logger::log("Discarding Unknown Packet Type.\n");
         }
 
+        mHeap->free(curPacket);
     }
 
     Logger::log("Client Read Thread ending.\n");
@@ -439,21 +456,24 @@ void Client::sendPlayerInfPacket(const PlayerActorBase *playerBase, bool isYukim
 
     sead::ScopedCurrentHeapSetter setter(sInstance->mHeap);
 
-    PlayerInf *packet = new PlayerInf();
-    packet->mUserID = sInstance->mUserID;
+    packets::system::PlayerInf playerInfPacket;
 
-    packet->playerPos = al::getTrans(playerBase);
+    *playerInfPacket.mutable_player_pos() = packets::convert(al::getTrans(playerBase));
 
-    al::calcQuat(&packet->playerRot,
+    sead::Quatf playerRot;
+    al::calcQuat(&playerRot,
                  playerBase);  // calculate rotation based off pose instead of using quat rotation
+    *playerInfPacket.mutable_player_rot() = packets::convert(playerRot);
 
+    constexpr uint32_t ANIM_BLEND_WEIGHT_COUNT = 6;
     if (!isYukimaru) { 
         
         PlayerActorHakoniwa* player = (PlayerActorHakoniwa*)playerBase;
 
-        for (size_t i = 0; i < 6; i++)
+        playerInfPacket.mutable_anim_blend_weights()->Resize(ANIM_BLEND_WEIGHT_COUNT, 0.0f);
+        for (size_t i = 0; i < ANIM_BLEND_WEIGHT_COUNT; i++)
         {
-            packet->animBlendWeights[i] = player->mPlayerAnimator->getBlendWeight(i);
+            playerInfPacket.mutable_anim_blend_weights()->at(i) = player->mPlayerAnimator->getBlendWeight(i);
         }
 
         const char *hackName = player->mHackKeeper->getCurrentHackName();
@@ -465,16 +485,16 @@ void Client::sendPlayerInfPacket(const PlayerActorBase *playerBase, bool isYukim
             const char* actName = al::getActionName(player->mHackKeeper->currentHackActor);
 
             if (actName) {
-                packet->actName = PlayerAnims::FindType(actName);
-                packet->subActName = PlayerAnims::Type::Unknown;
+                playerInfPacket.set_act_name(packets::convert(PlayerAnims::FindType(actName)));
+                playerInfPacket.set_sub_act_name(packets::convert(PlayerAnims::Type::Unknown));
                 //strcpy(packet.actName, actName); 
             } else {
-                packet->actName = PlayerAnims::Type::Unknown;
-                packet->subActName = PlayerAnims::Type::Unknown;
+                playerInfPacket.set_act_name(packets::convert(PlayerAnims::Type::Unknown));
+                playerInfPacket.set_sub_act_name(packets::convert(PlayerAnims::Type::Unknown));
             }
         } else {
-            packet->actName = PlayerAnims::FindType(player->mPlayerAnimator->mAnimFrameCtrl->getActionName());
-            packet->subActName = PlayerAnims::FindType(player->mPlayerAnimator->curSubAnim.cstr());
+            playerInfPacket.set_act_name(packets::convert(PlayerAnims::FindType(player->mPlayerAnimator->mAnimFrameCtrl->getActionName())));
+            playerInfPacket.set_sub_act_name(packets::convert(PlayerAnims::FindType(player->mPlayerAnimator->curSubAnim.cstr())));
 
             sInstance->isClientCaptured = false;
         }
@@ -482,17 +502,20 @@ void Client::sendPlayerInfPacket(const PlayerActorBase *playerBase, bool isYukim
     } else {
 
         // TODO: implement YukimaruRacePlayer syncing
-        
-        for (size_t i = 0; i < 6; i++)
-        {
-            packet->animBlendWeights[i] = 0;
-        }
+        playerInfPacket.mutable_anim_blend_weights()->Resize(ANIM_BLEND_WEIGHT_COUNT, 0.0f);
 
         sInstance->isClientCaptured = false;
 
-        packet->actName = PlayerAnims::Type::Unknown;
-        packet->subActName = PlayerAnims::Type::Unknown;
+        playerInfPacket.set_act_name(packets::convert(PlayerAnims::Type::Unknown));
+        playerInfPacket.set_sub_act_name(packets::convert(PlayerAnims::Type::Unknown));
     }
+
+    packets::system::SystemPacket systemPacket;
+    *systemPacket.mutable_player_inf() = playerInfPacket;
+    packets::Packet* packet = new packets::Packet();
+    *packet->mutable_system_packet() = systemPacket;
+    *packet->mutable_metadata()->mutable_user_id() = packets::convert(sInstance->mUserID);
+
     
     if(sInstance->lastPlayerInfPacket != *packet) {
         sInstance->lastPlayerInfPacket = *packet; // deref packet and store in client memory
@@ -522,17 +545,17 @@ void Client::sendHackCapInfPacket(const HackCap* hackCap) {
     // if cap is in flying state, send packet as often as this function is called
     if (isFlying) {
         HackCapInf *packet = new HackCapInf();
-        packet->mUserID = sInstance->mUserID;
-        packet->capPos = al::getTrans(hackCap);
+        packet.mUserID = sInstance->mUserID;
+        packet.capPos = al::getTrans(hackCap);
 
-        packet->isCapVisible = isFlying;
+        packet.isCapVisible = isFlying;
 
-        packet->capQuat.x = hackCap->mJointKeeper->mJointRot.x;
-        packet->capQuat.y = hackCap->mJointKeeper->mJointRot.y;
-        packet->capQuat.z = hackCap->mJointKeeper->mJointRot.z;
-        packet->capQuat.w = hackCap->mJointKeeper->mSkew;
+        packet.capQuat.x = hackCap->mJointKeeper->mJointRot.x;
+        packet.capQuat.y = hackCap->mJointKeeper->mJointRot.y;
+        packet.capQuat.z = hackCap->mJointKeeper->mJointRot.z;
+        packet.capQuat.w = hackCap->mJointKeeper->mSkew;
 
-        strcpy(packet->capAnim, al::getActionName(hackCap));
+        strcpy(packet.capAnim, al::getActionName(hackCap));
 
         sInstance->mSocket->queuePacket(packet);
 
@@ -540,10 +563,10 @@ void Client::sendHackCapInfPacket(const HackCap* hackCap) {
 
     } else if (sInstance->isSentHackInf) { // if cap is not flying, check to see if previous function call sent a packet, and if so, send one final packet resetting cap data.
         HackCapInf *packet = new HackCapInf();
-        packet->mUserID = sInstance->mUserID;
-        packet->isCapVisible = false;
-        packet->capPos = sead::Vector3f::zero;
-        packet->capQuat = sead::Quatf::unit;
+        packet.mUserID = sInstance->mUserID;
+        packet.isCapVisible = false;
+        packet.capPos = sead::Vector3f::zero;
+        packet.capQuat = sead::Quatf::unit;
         sInstance->mSocket->queuePacket(packet);
         sInstance->isSentHackInf = false;
     }
@@ -565,17 +588,17 @@ void Client::sendGameInfPacket(const PlayerActorHakoniwa* player, GameDataHolder
     sead::ScopedCurrentHeapSetter setter(sInstance->mHeap);
     
     GameInf *packet = new GameInf();
-    packet->mUserID = sInstance->mUserID;
+    packet.mUserID = sInstance->mUserID;
 
     if (player) {
-        packet->is2D = player->mDimKeeper->is2DModel;
+        packet.is2D = player->mDimKeeper->is2DModel;
     } else {
-        packet->is2D = false;
+        packet.is2D = false;
     }
 
-    packet->scenarioNo = holder.mData->mGameDataFile->getScenarioNo();
+    packet.scenarioNo = holder.mData->mGameDataFile->getScenarioNo();
 
-    strcpy(packet->stageName, GameDataFunction::getCurrentStageName(holder));
+    strcpy(packet.stageName, GameDataFunction::getCurrentStageName(holder));
 
     if (*packet != sInstance->lastGameInfPacket && *packet != sInstance->emptyGameInfPacket) {
         sInstance->lastGameInfPacket = *packet;
@@ -600,13 +623,13 @@ void Client::sendGameInfPacket(GameDataHolderAccessor holder) {
     sead::ScopedCurrentHeapSetter setter(sInstance->mHeap);
     
     GameInf *packet = new GameInf();
-    packet->mUserID = sInstance->mUserID;
+    packet.mUserID = sInstance->mUserID;
 
-    packet->is2D = false;
+    packet.is2D = false;
 
-    packet->scenarioNo = holder.mData->mGameDataFile->getScenarioNo();
+    packet.scenarioNo = holder.mData->mGameDataFile->getScenarioNo();
 
-    strcpy(packet->stageName, GameDataFunction::getCurrentStageName(holder));
+    strcpy(packet.stageName, GameDataFunction::getCurrentStageName(holder));
 
     if (*packet != sInstance->emptyGameInfPacket) {
         sInstance->lastGameInfPacket = *packet;
@@ -638,13 +661,13 @@ void Client::sendTagInfPacket() {
 
     TagInf *packet = new TagInf();
 
-    packet->mUserID = sInstance->mUserID;
+    packet.mUserID = sInstance->mUserID;
 
-    packet->isIt = hsMode->isPlayerIt();
+    packet.isIt = hsMode->isPlayerIt();
 
-    packet->minutes = curInfo->mHidingTime.mMinutes;
-    packet->seconds = curInfo->mHidingTime.mSeconds;
-    packet->updateType = static_cast<TagUpdateType>(TagUpdateType::STATE | TagUpdateType::TIME);
+    packet.minutes = curInfo->mHidingTime.mMinutes;
+    packet.seconds = curInfo->mHidingTime.mSeconds;
+    packet.updateType = static_cast<TagUpdateType>(TagUpdateType::STATE | TagUpdateType::TIME);
 
     sInstance->mSocket->queuePacket(packet);
 }
@@ -667,7 +690,7 @@ void Client::sendCostumeInfPacket(const char* body, const char* cap) {
     sead::ScopedCurrentHeapSetter setter(sInstance->mHeap);
     
     CostumeInf *packet = new CostumeInf(body, cap);
-    packet->mUserID = sInstance->mUserID;
+    packet.mUserID = sInstance->mUserID;
     sInstance->lastCostumeInfPacket = *packet;
     sInstance->mSocket->queuePacket(packet);
 }
@@ -703,14 +726,14 @@ void Client::sendCaptureInfPacket(const PlayerActorHakoniwa* player) {
     
     if (sInstance->isClientCaptured && !sInstance->isSentCaptureInf) {
         CaptureInf *packet = new CaptureInf();
-        packet->mUserID = sInstance->mUserID;
-        strcpy(packet->hackName, tryConvertName(player->mHackKeeper->getCurrentHackName()));
+        packet.mUserID = sInstance->mUserID;
+        strcpy(packet.hackName, tryConvertName(player->mHackKeeper->getCurrentHackName()));
         sInstance->mSocket->queuePacket(packet);
         sInstance->isSentCaptureInf = true;
     } else if (!sInstance->isClientCaptured && sInstance->isSentCaptureInf) {
         CaptureInf *packet = new CaptureInf();
-        packet->mUserID = sInstance->mUserID;
-        strcpy(packet->hackName, "");
+        packet.mUserID = sInstance->mUserID;
+        strcpy(packet.hackName, "");
         sInstance->mSocket->queuePacket(packet);
         sInstance->isSentCaptureInf = false;
     }
@@ -721,7 +744,7 @@ void Client::sendCaptureInfPacket(const PlayerActorHakoniwa* player) {
  */
 void Client::resendInitPackets() {
     // CostumeInfPacket
-    if (lastCostumeInfPacket.mUserID == mUserID) {
+    if (packets::convert(lastCostumeInfPacket.user_id()) == mUserID)) {
         mSocket->queuePacket(&lastCostumeInfPacket);
     }
 
@@ -747,8 +770,8 @@ void Client::sendShineCollectPacket(int shineID) {
 
     if(sInstance->lastCollectedShine != shineID) {
         ShineCollect *packet = new ShineCollect();
-        packet->mUserID = sInstance->mUserID;
-        packet->shineId = shineID;
+        packet.mUserID = sInstance->mUserID;
+        packet.shineId = shineID;
 
         sInstance->lastCollectedShine = shineID;
 
@@ -761,9 +784,8 @@ void Client::sendShineCollectPacket(int shineID) {
  * 
  * @param packet 
  */
-void Client::updatePlayerInfo(PlayerInf *packet) {
-
-    PuppetInfo* curInfo = findPuppetInfo(packet->mUserID, false);
+void Client::updatePlayerInfo(packets::PacketMetadata const& packetMetadata, packets::system::PlayerInf const& packet) {
+    PuppetInfo* curInfo = findPuppetInfo(packets::convert(packetMetadata.user_id()), false);
 
     if (!curInfo) {
         return;
@@ -773,46 +795,47 @@ void Client::updatePlayerInfo(PlayerInf *packet) {
         curInfo->isConnected = true;
     }
 
-    curInfo->playerPos = packet->playerPos;
+    auto const playerRot = packets::convert(packet.playerPos);
+    curInfo->playerPos = playerPos;
 
     // check if rotation is larger than zero and less than or equal to 1
-    if(abs(packet->playerRot.x) > 0.f || abs(packet->playerRot.y) > 0.f || abs(packet->playerRot.z) > 0.f || abs(packet->playerRot.w) > 0.f) {
-        if(abs(packet->playerRot.x) <= 1.f || abs(packet->playerRot.y) <= 1.f || abs(packet->playerRot.z) <= 1.f || abs(packet->playerRot.w) <= 1.f) {
-            curInfo->playerRot = packet->playerRot;
+    if(abs(playerRot.x) > 0.f || abs(playerRot.y) > 0.f || abs(playerRot.z) > 0.f || abs(playerRot.w) > 0.f) {
+        if(abs(playerRot.x) <= 1.f || abs(playerRot.y) <= 1.f || abs(playerRot.z) <= 1.f || abs(playerRot.w) <= 1.f) {
+            curInfo->playerRot = playerRot;
         }
     }
 
-        if (packet->actName != PlayerAnims::Type::Unknown) {
-            strcpy(curInfo->curAnimStr, PlayerAnims::FindStr(packet->actName));
+        if (packet.act_name() != PlayerAnims::Type::Unknown) {
+            strcpy(curInfo->curAnimStr, PlayerAnims::FindStr(packet.act_name()));
             if (curInfo->curAnimStr[0] == '\0')
-                Logger::log("[ERROR] %s: actName was out of bounds: %d\n", __func__, packet->actName);
+                Logger::log("[ERROR] %s: actName was out of bounds: %d\n", __func__, packet.act_name());
         } else {
             strcpy(curInfo->curAnimStr, "Wait");
         }
 
-        if(packet->subActName != PlayerAnims::Type::Unknown) {
-            strcpy(curInfo->curSubAnimStr, PlayerAnims::FindStr(packet->subActName));
+        if(packet.sub_act_name() != PlayerAnims::Type::Unknown) {
+            strcpy(curInfo->curSubAnimStr, PlayerAnims::FindStr(packet.sub_act_name()));
             if (curInfo->curSubAnimStr[0] == '\0')
-                Logger::log("[ERROR] %s: subActName was out of bounds: %d\n", __func__, packet->subActName);
+                Logger::log("[ERROR] %s: subActName was out of bounds: %d\n", __func__, packet.sub_act_name());
         } else {
             strcpy(curInfo->curSubAnimStr, "");
         }
 
-    curInfo->curAnim = packet->actName;
-    curInfo->curSubAnim = packet->subActName;
+    curInfo->curAnim = packets::convert(packet.act_name());
+    curInfo->curSubAnim = packets::convert(packet.sub_act_name());
 
-    for (size_t i = 0; i < 6; i++)
+    for (size_t i = 0; i < 6 && i < packet.anim_blend_weights()->Size(); i++)
     {
         // weights can only be between 0 and 1
-        if(packet->animBlendWeights[i] >= 0.f && packet->animBlendWeights[i] <= 1.f) {
-            curInfo->blendWeights[i] = packet->animBlendWeights[i];
+        if(packet.anim_blend_weights().at(i) >= 0.f && packet.anim_blend_weights().at(i) <= 1.f) {
+            curInfo->blendWeights[i] = packet.anim_blend_weights().at(i);
         }
     }
 
     //TEMP
 
     if(!curInfo->isCapThrow) {
-        curInfo->capPos = packet->playerPos;
+        curInfo->capPos = packets::convert(packet.player_pos());
     }
 
 }
@@ -822,17 +845,17 @@ void Client::updatePlayerInfo(PlayerInf *packet) {
  * 
  * @param packet 
  */
-void Client::updateHackCapInfo(HackCapInf *packet) {
+void Client::updateHackCapInfo(packets::PacketMetadata const& packetMetadata, packets::system::HackCapInf const& packet) {
 
-    PuppetInfo* curInfo = findPuppetInfo(packet->mUserID, false);
+    PuppetInfo* curInfo = findPuppetInfo(packets::convert(packetMetadata.user_id()), false);
 
     if (curInfo) {
-        curInfo->capPos = packet->capPos;
-        curInfo->capRot = packet->capQuat;
+        curInfo->capPos = packets::convert(packet.cap_pos());
+        curInfo->capRot = packets::convert(packet.cap_quat());
 
-        curInfo->isCapThrow = packet->isCapVisible;
+        curInfo->isCapThrow = packet.is_cap_visible().value();
 
-        strcpy(curInfo->capAnim, packet->capAnim);
+        strcpy(curInfo->capAnim, packet.cap_anim().c_str());
     }
 }
 
@@ -841,18 +864,18 @@ void Client::updateHackCapInfo(HackCapInf *packet) {
  * 
  * @param packet 
  */
-void Client::updateCaptureInfo(CaptureInf* packet) {
+void Client::updateCaptureInfo(packets::PacketMetadata const& packetMetadata, packets::system::CaptureInf const& packet) {
     
-    PuppetInfo* curInfo = findPuppetInfo(packet->mUserID, false);
+    PuppetInfo* curInfo = findPuppetInfo(packets::convert(packetMetadata.user_id()), false);
         
     if (!curInfo) {
         return;
     }
 
-    curInfo->isCaptured = strlen(packet->hackName) > 0;
+    curInfo->isCaptured = packet.hack_name().size() > 0;
 
     if (curInfo->isCaptured) {
-        strcpy(curInfo->curHack, packet->hackName);
+        strcpy(curInfo->curHack, packet.hack_name().c_str());
     }
 }
 
@@ -861,16 +884,16 @@ void Client::updateCaptureInfo(CaptureInf* packet) {
  * 
  * @param packet 
  */
-void Client::updateCostumeInfo(CostumeInf *packet) {
+void Client::updateCostumeInfo(packets::PacketMetadata const& packetMetadata, packets::system::CostumeInf const& packet) {
 
-    PuppetInfo* curInfo = findPuppetInfo(packet->mUserID, false);
+    PuppetInfo* curInfo = findPuppetInfo(packets::convert(packetMetadata.user_id()), false);
 
     if (!curInfo) {
         return;
     }
 
-    strcpy(curInfo->costumeBody, packet->bodyModel);
-    strcpy(curInfo->costumeHead, packet->capModel);
+    strcpy(curInfo->costumeBody, packet.body_model().c_str());
+    strcpy(curInfo->costumeHead, packet.cap_model().c_str());
 }
 
 /**
@@ -878,9 +901,9 @@ void Client::updateCostumeInfo(CostumeInf *packet) {
  * 
  * @param packet 
  */
-void Client::updateShineInfo(ShineCollect* packet) {
+void Client::updateShineInfo(packets::PacketMetadata const& packetMetadata, packets::system::ShineCollect const& packet) {
     if(collectedShineCount < curCollectedShines.size() - 1) {
-        curCollectedShines[collectedShineCount] = packet->shineId;
+        curCollectedShines[collectedShineCount] = packet.shine_id();
         collectedShineCount++;
     }
 }
@@ -890,9 +913,9 @@ void Client::updateShineInfo(ShineCollect* packet) {
  * 
  * @param packet 
  */
-void Client::updatePlayerConnect(PlayerConnect* packet) {
+void Client::updatePlayerConnect(packets::PacketMetadata const& packetMetadata, packets::system::PlayerConnect const& packet) {
     
-    PuppetInfo* curInfo = findPuppetInfo(packet->mUserID, true);
+    PuppetInfo* curInfo = findPuppetInfo(packets::convert(packetMetadata.user_id()), true);
 
     if (!curInfo) {
         return;
@@ -901,16 +924,16 @@ void Client::updatePlayerConnect(PlayerConnect* packet) {
     if (curInfo->isConnected) {
 
         Logger::log("Info is already being used by another connected player!\n");
-        packet->mUserID.print("Connection ID");
+        packets::convert(packetMetadata.user_id()).print("Connection ID");
         curInfo->playerID.print("Target Info");
 
     } else {
 
-        packet->mUserID.print("Player Connected! ID");
+        packets::convert(packetMetadata.user_id()).print("Player Connected! ID");
 
-        curInfo->playerID = packet->mUserID;
+        curInfo->playerID = packets::convert(packetMetadata.user_id());
         curInfo->isConnected = true;
-        strcpy(curInfo->puppetName, packet->clientName);
+        strcpy(curInfo->puppetName, packet.client_name().c_str());
 
         mConnectCount++;
     }
@@ -921,9 +944,9 @@ void Client::updatePlayerConnect(PlayerConnect* packet) {
  * 
  * @param packet 
  */
-void Client::updateGameInfo(GameInf *packet) {
+void Client::updateGameInfo(packets::PacketMetadata const& packetMetadata, packets::system::GameInf const& packet) {
 
-    PuppetInfo* curInfo = findPuppetInfo(packet->mUserID, false);
+    PuppetInfo* curInfo = findPuppetInfo(packets::convert(packetMetadata.user_id()), false);
 
     if (!curInfo) {
         return;
@@ -931,13 +954,13 @@ void Client::updateGameInfo(GameInf *packet) {
 
     if(curInfo->isConnected) {
 
-        curInfo->scenarioNo = packet->scenarioNo;
+        curInfo->scenarioNo = packet.scenario_num();
 
-        if(strcmp(packet->stageName, "") != 0 && strlen(packet->stageName) > 3) {
-            strcpy(curInfo->stageName, packet->stageName);
+        if(strcmp(packet.stage_name().c_str(), "") != 0 && strlen(packet.stage_name().c_str()) > 3) {
+            strcpy(curInfo->stageName, packet.stage_name().c_str());
         }
 
-        curInfo->is2D = packet->is2D;
+        curInfo->is2D = packet.is_2d().value();
     }
 }
 
@@ -946,46 +969,46 @@ void Client::updateGameInfo(GameInf *packet) {
  * 
  * @param packet 
  */
-void Client::updateTagInfo(TagInf *packet) {
+void Client::updateTagInfo(packets::PacketMetadata const& packetMetadata, packets::system::TagInf const& packet) {
     Logger::log("H&S Tag Packet Received\n");
     // if the packet is for our player, edit info for our player
-    if (packet->mUserID == mUserID && GameModeManager::instance()->isMode(GameMode::HIDEANDSEEK)) {
+    if (packets::convert(packetMetadata.user_id()) == mUserID && GameModeManager::instance()->isMode(GameMode::HIDEANDSEEK)) {
 
         HideAndSeekMode* mMode = GameModeManager::instance()->getMode<HideAndSeekMode>();
         HideAndSeekInfo* curInfo = GameModeManager::instance()->getInfo<HideAndSeekInfo>();
 
-        if (packet->updateType & TagUpdateType::STATE) {
-            mMode->setPlayerTagState(packet->isIt);
+        if (packet.update_type() & packets::system::TagUpdateType::STATE) {
+            mMode->setPlayerTagState(packet.is_it().value());
         }
 
-        if (packet->updateType & TagUpdateType::TIME) {
-            curInfo->mHidingTime.mSeconds = packet->seconds;
-            curInfo->mHidingTime.mMinutes = packet->minutes;
+        if (packet.update_type() & packets::system::TagUpdateType::TIME) {
+            curInfo->mHidingTime.mSeconds = packet.seconds();
+            curInfo->mHidingTime.mMinutes = packet.minutes();
         }
 
         return;
 
     }
 
-    PuppetInfo* curInfo = findPuppetInfo(packet->mUserID, false);
+    PuppetInfo* curInfo = findPuppetInfo(packets::convert(packetMetadata.user_id()), false);
 
     if (!curInfo) {
         return;
     }
 
-    curInfo->isIt = packet->isIt;
-    curInfo->seconds = packet->seconds;
-    curInfo->minutes = packet->minutes;
+    curInfo->isIt = packet.is_it().value();
+    curInfo->seconds = packet.seconds();
+    curInfo->minutes = packet.minutes();
 }
 
-void Client::updateCTFPlayerTeamAssignment(CaptureTheFlagPlayerTeamAssignment const* packet) {
-    if (packet->mUserID != mUserID) {
-        PuppetInfo* curInfo = findPuppetInfo(packet->mUserID, false);
+void Client::updateCTFPlayerTeamAssignment(packets::PacketMetadata const& packetMetadata, packets::ctf::PlayerTeamAssignment const& packet) {
+    if (packets::convert(packetMetadata.user_id()) != mUserID) {
+        PuppetInfo* curInfo = findPuppetInfo(packets::convert(packetMetadata.user_id()), false);
         if (!curInfo) {
             return;
         }
 
-        curInfo->ctfTeam = packet->team;
+        curInfo->ctfTeam = packet.team();
         return;
     }
 
@@ -995,39 +1018,39 @@ void Client::updateCTFPlayerTeamAssignment(CaptureTheFlagPlayerTeamAssignment co
 
     CaptureTheFlagInfo* curInfo = GameModeManager::instance()->getInfo<CaptureTheFlagInfo>();
 
-    curInfo->mPlayerTeam = packet->team;
+    curInfo->mPlayerTeam = packet.team();
 
-    if (packet->shouldHoldTeamFlag) {
-        curInfo->mHeldFlag = packet->team;
+    if (packet.should_hold_team_flag().value()) {
+        curInfo->mHeldFlag = packet.team();
     }    
 }
 
-void Client::updateCTFGameState(CaptureTheFlagGameState const* packet) {
+void Client::updateCTFGameState(packets::PacketMetadata const& packetMetadata, packets::ctf::GameState const& packet) {
     if (!GameModeManager::instance()->isModeAndActive(GameMode::CAPTURE_THE_FLAG)) {
         return;
     }
 
-    if (packet->resetGame) {
+    if (packet.reset_game().value()) {
         CaptureTheFlagMode* mMode = GameModeManager::instance()->getMode<CaptureTheFlagMode>();
         mMode->resetGameInfo(); // Team assignment is sent on game start, so if a new game starts, make sure to reset all info from the previous game
     }
 
     CaptureTheFlagInfo* curInfo = GameModeManager::instance()->getInfo<CaptureTheFlagInfo>();
-    curInfo->mRoundTime.mSeconds = packet->seconds;
-    curInfo->mRoundTime.mMinutes = packet->minutes;
+    curInfo->mRoundTime.mSeconds = packet.seconds();
+    curInfo->mRoundTime.mMinutes = packet.minutes();
 }
 
-void Client::updateCTFFlagHoldState(FlagHoldState const* packet) {
-    FlagActor::latestReceivedFlagTeam = packet->team;
-    auto flagActorMaybe = FlagActor::getFlagActorForTeam(packet->team);
+void Client::updateCTFFlagHoldState(packets::PacketMetadata const& packetMetadata, packets::ctf::FlagHoldState const& packet) {
+    FlagActor::latestReceivedFlagTeam = packet.flag_team();
+    auto flagActorMaybe = FlagActor::getFlagActorForTeam(packet.flag_team());
     if (flagActorMaybe.has_value()) {
         auto* flagActor = flagActorMaybe.value();
-        flagActor->setHeldPlayer(packet->isHeld ? packet->mUserID : nn::account::Uid());
-        flagActor->setIsHeld(packet->isHeld);
+        flagActor->setHeldPlayer(packet.is_held().value() ? packets::convert(packetMetadata.user_id()) : nn::account::Uid());
+        flagActor->setIsHeld(packet.is_held().value());
     }
 }
 
-void Client::updateCTFFlagDroppedPosition(FlagDroppedPosition const* packet) {
+void Client::updateCTFFlagDroppedPosition(packets::PacketMetadata const& packetMetadata, packets::ctf::FlagDroppedPosition const& packet) {
     if (!GameModeManager::instance()->isModeAndActive(GameMode::CAPTURE_THE_FLAG)) {
         return;
     }
@@ -1036,14 +1059,14 @@ void Client::updateCTFFlagDroppedPosition(FlagDroppedPosition const* packet) {
         return; // Getting local player is invalid on first frame after loading a stage (causes crash)
     }
     
-    FlagActor::latestReceivedFlagTeam = packet->team;
-    FlagActor::latestReceivedPosition = packet->pos;
-    strcpy(FlagActor::latestReceivedStage, packet->stageName);
+    FlagActor::latestReceivedFlagTeam = packet.flag_team();
+    FlagActor::latestReceivedPosition = packets::convert(packet.pos());
+    strcpy(FlagActor::latestReceivedStage, packet.stage_name().c_str());
 
-    auto flagActorMaybe = FlagActor::getFlagActorForTeam(packet->team);
+    auto flagActorMaybe = FlagActor::getFlagActorForTeam(packet.flag_team());
     if (flagActorMaybe.has_value()) {
         auto* flagActor = flagActorMaybe.value();
-        // if (StageData(mStageName.cstr(), mScenario) != StageData(packet->stageName, packet->scenarioNo)) {
+        // if (StageData(mStageName.cstr(), mScenario) != StageData(packet.stageName, packet.scenarioNo)) {
         //     flagActor->makeActorDead();
         //     return;
         // }
@@ -1051,17 +1074,17 @@ void Client::updateCTFFlagDroppedPosition(FlagDroppedPosition const* packet) {
         flagActor->makeActorAlive();
         flagActor->setHeldPlayer(nn::account::Uid());
         flagActor->setIsHeld(false);
-        flagActor->setTransform(packet->pos, packet->rot);
+        flagActor->setTransform(packets::convert(packet.pos()), packets::convert(packet.rot()));
     }
 }
 
-void Client::updateCTFWinState(CaptureTheFlagWin const* packet) {
+void Client::updateCTFWinState(packets::PacketMetadata const& packetMetadata, packets::ctf::Win const& packet) {
     if (!GameModeManager::instance()->isModeAndActive(GameMode::CAPTURE_THE_FLAG)) {
         return;
     }
 
     CaptureTheFlagInfo* curInfo = GameModeManager::instance()->getInfo<CaptureTheFlagInfo>();
-    curInfo->mWinningTeam = packet->winningTeam;
+    curInfo->mWinningTeam = packet.winning_team();
 }
 
 std::optional<std::tuple<sead::Vector3f, sead::Quatf>> Client::getPlayerTransformInSameStage(nn::account::Uid const& userID) {
@@ -1108,15 +1131,15 @@ std::optional<std::tuple<sead::Vector3f, sead::Quatf>> Client::getPlayerTransfor
  * 
  * @param packet 
  */
-void Client::sendToStage(ChangeStagePacket* packet) {
+void Client::sendToStage(packets::PacketMetadata const& packetMetadata, packets::system::ChangeStage const& packet) {
     if (mSceneInfo && mSceneInfo->mSceneObjHolder) {
 
         GameDataHolderAccessor accessor(mSceneInfo->mSceneObjHolder);
 
-        Logger::log("Sending Player to %s at Entrance %s in Scenario %d\n", packet->changeStage,
-                     packet->changeID, packet->scenarioNo);
+        Logger::log("Sending Player to %s at Entrance %s in Scenario %d\n", packet.change_stage().c_str(),
+                     packet.change_id().c_str(), packet.scenario_num());
         
-        ChangeStageInfo info(accessor.mData, packet->changeID, packet->changeStage, false, packet->scenarioNo, static_cast<ChangeStageInfo::SubScenarioType>(packet->subScenarioType));
+        ChangeStageInfo info(accessor.mData, packet.change_id().c_str(), packet.change_stage().c_str(), false, packet.scenario_num(), static_cast<ChangeStageInfo::SubScenarioType>(packet.sub_scenario_type()));
         GameDataFunction::tryChangeNextStage(accessor, &info);
     }
 }
@@ -1126,9 +1149,9 @@ void Client::sendToStage(ChangeStagePacket* packet) {
  * 
  * @param packet 
  */
-void Client::disconnectPlayer(PlayerDC *packet) {
+void Client::disconnectPlayer(packets::PacketMetadata const& packetMetadata, packets::system::PlayerDC const& packet) {
 
-    PuppetInfo* curInfo = findPuppetInfo(packet->mUserID, false);
+    PuppetInfo* curInfo = findPuppetInfo(packets::convert(packetMetadata.user_id()), false);
 
     if (!curInfo || !curInfo->isConnected) {
         return;

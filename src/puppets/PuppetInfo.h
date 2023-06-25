@@ -1,7 +1,7 @@
 #pragma once
 
 #include "algorithms/PlayerAnims.h"
-#include "packets/Packet.h"
+#include "packets/Packet.hpp"
 
 #include "al/LiveActor/LiveActor.h"
 
@@ -50,5 +50,5 @@ struct PuppetInfo {
     u16 minutes = 0;
 
     // Capture The Flag Gamemode Info
-    FlagTeam ctfTeam = FlagTeam::INVALID;
+    packets::ctf::FlagTeam ctfTeam = packets::ctf::FlagTeam::INVALID;
 };

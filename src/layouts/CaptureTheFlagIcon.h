@@ -19,7 +19,7 @@ class CaptureTheFlagIcon : public al::LayoutActor {
         bool tryStart();
         bool tryEnd();
 
-        void showTeam(FlagTeam team);
+        void showTeam(packets::ctf::FlagTeam team);
         void showOffsidesWarning();
         void hideOffsidesWarning();
         

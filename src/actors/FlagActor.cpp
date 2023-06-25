@@ -15,7 +15,7 @@
 #include "server/gamemode/GameModeBase.hpp"
 
 sead::Vector3f FlagActor::latestReceivedPosition{};
-FlagTeam FlagActor::latestReceivedFlagTeam{};
+packets::ctf::FlagTeam FlagActor::latestReceivedFlagTeam{};
 char FlagActor::latestReceivedStage[0x40] = {};
 
 

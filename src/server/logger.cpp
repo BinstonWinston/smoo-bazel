@@ -34,7 +34,7 @@ nn::Result Logger::init(const char* ip, u16 port) {
     while (nn::nifm::IsNetworkRequestOnHold()) { }
 
     // emulators make this return false always, so skip it during init
-    #ifdef EMU == 0
+    #if EMU == 0
 
     if (!nn::nifm::IsNetworkAvailable()) {
         this->socket_log_state = SOCKET_LOG_UNAVAILABLE;

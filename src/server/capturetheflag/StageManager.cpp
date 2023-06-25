@@ -22,11 +22,11 @@ bool operator==(StageData const& lhs, StageData const& rhs) {
     return al::isEqualString(lhs.stageName, rhs.stageName) && lhs.scenarioNum == rhs.scenarioNum;
 }
 
-std::optional<std::pair<StageData, const char*>> StageManager::getHomeTeleport(StageData const& inStageData, FlagTeam team) {
+std::optional<std::pair<StageData, const char*>> StageManager::getHomeTeleport(StageData const& inStageData, packets::ctf::FlagTeam team) {
     const auto HOME_LOCATIONS = sead::toArray({
         // Cascade
-        std::make_tuple("WaterfallWorldHomeStage", FlagTeam::RED, "CapAppearExExit"),
-        std::make_tuple("WaterfallWorldHomeStage", FlagTeam::BLUE, ""),
+        std::make_tuple("WaterfallWorldHomeStage", packets::ctf::FlagTeam::RED, "CapAppearExExit"),
+        std::make_tuple("WaterfallWorldHomeStage", packets::ctf::FlagTeam::BLUE, ""),
     });
 
     auto stageData = inStageData;

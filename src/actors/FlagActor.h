@@ -91,10 +91,10 @@ class FlagActor : public al::LiveActor {
 
         void changeModel(const char* newModel);
         void startAction(const char* action);
-        void setTeam(FlagTeam team);
+        void setTeam(packets::ctf::FlagTeam team);
         
-        static FlagActor* teamFlags[static_cast<int>(FlagTeam::_COUNT)];
-        static FlagInfo flagInfos[static_cast<int>(FlagTeam::_COUNT)];
+        static FlagActor* teamFlags[static_cast<int>(packets::ctf::FlagTeam::_COUNT)];
+        static FlagInfo flagInfos[static_cast<int>(packets::ctf::FlagTeam::_COUNT)];
         std::optional<FlagInfo*> m_info;
         
 };

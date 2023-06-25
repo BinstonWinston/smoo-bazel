@@ -294,9 +294,9 @@ void CaptureTheFlagMode::sendFlagHoldStateUpdateIfHeld(PlayerActorBase* playerBa
 
     auto const playerPos = al::getTrans(playerBase);
     auto const playerRot = al::getQuat(playerBase);
-    FlagHoldState packet{};
-    packet.isHeld = true;
-    packet.team = mInfo->mHeldFlag;
+    packets::ctf::FlagHoldState packet{};
+    packet.mutable_is_held()->set_value(true);
+    packet.set_flag_team(mInfo->mHeldFlag);
     Client::sendFlagHoldStatePacket(packet);
     auto flagActorMaybe = FlagActor::getFlagActorForTeam(mInfo->mHeldFlag);
     if (flagActorMaybe.has_value()) {
@@ -320,8 +320,8 @@ void CaptureTheFlagMode::checkWin(PlayerActorBase* playerBase) {
     auto const opposingTeam = getOpposingTeam(mInfo->mPlayerTeam);
     auto const win = (side == mInfo->mPlayerTeam) && opposingTeam.has_value() && (mInfo->mHeldFlag == opposingTeam);
     if (win) {
-        CaptureTheFlagWin winPacket;
-        winPacket.winningTeam = mInfo->mPlayerTeam;
+        packets::ctf::Win winPacket;
+        winPacket.set_winning_team(mInfo->mPlayerTeam);
         Client::sendCTFWinPacket(winPacket);
     }
 }
@@ -390,9 +390,9 @@ void CaptureTheFlagMode::dropHeldFlag() {
     if (mInfo->mHeldFlag == FlagTeam::INVALID) {
         return;
     }
-    FlagHoldState packet{};
-    packet.isHeld = false;
-    packet.team = mInfo->mHeldFlag;
+    packets::ctf::FlagHoldState packet{};
+    packet.mutable_is_held()->set_value(false);
+    packet.set_flag_team(mInfo->mHeldFlag);
     Client::sendFlagHoldStatePacket(packet);
     mInfo->mHeldFlag = FlagTeam::INVALID;
 }

@@ -1,6 +1,7 @@
 #include "server/SocketClient.hpp"
 #include <cstdlib>
 #include <cstring>
+#include <google/protobuf/util/json_util.h>
 #include <basis/seadNew.h>
 
 #include "SocketBase.hpp"
@@ -8,10 +9,22 @@
 #include "logger.hpp"
 #include "nn/result.h"
 #include "nn/socket.h"
-#include "packets/Packet.h"
+#include "packets/Packet.hpp"
 #include "server/Client.hpp"
 #include "thread/seadMessageQueue.h"
 #include "types.h"
+
+namespace {
+    std::string packetToJson(packets::Packet const& packet) {
+        std::string jsonString;
+        google::protobuf::util::JsonPrintOptions options;
+        options.add_whitespace = false;
+        options.always_print_primitive_fields = true;
+        options.preserve_proto_field_names = true;
+        MessageToJsonString(packet, &jsonString, options);
+        return jsonString;
+    }
+}
 
 SocketClient::SocketClient(const char* name, sead::Heap* heap, Client* client) : mHeap(heap), SocketBase(name) {
 
@@ -88,21 +101,29 @@ nn::Result SocketClient::init(const char* ip, u16 port) {
 
     // send init packet to server once we connect (an issue with the server prevents this from working properly, waiting for a fix to implement)
     
-    PlayerConnect initPacket;
-    initPacket.mUserID = Client::getClientId();
-    strcpy(initPacket.clientName, Client::getUsername().cstr());
+    packets::system::PlayerConnect initPacket;
+    initPacket.set_client_name(packets::convert(Client::getUsername()));
 
     if (mIsFirstConnect) {
-        initPacket.conType = ConnectionTypes::INIT;
+        initPacket.set_con_type(packets::system::ConnectionTypes::INIT);
         mIsFirstConnect = false;
     } else {
-        initPacket.conType = ConnectionTypes::RECONNECT;
+        initPacket.set_con_type(packets::system::ConnectionTypes::RECONNECT);
     }
 
-    send(&initPacket);
+    sead::ScopedCurrentHeapSetter setter(mHeap);
+
+    packets::system::SystemPacket systemPacket;
+    *systemPacket.mutable_player_connect() = initPacket;
+    packets::Packet* packet = new packets::Packet();
+    *packet->mutable_system_packet() = systemPacket;
+    *packet->mutable_metadata()->mutable_user_id() = packets::convert(Client::getClientId());
+
+
+    send(packet);
 
     // on a reconnect, resend some maybe missing packets
-    if (initPacket.conType == ConnectionTypes::RECONNECT) {
+    if (initPacket.con_type() == packets::system::ConnectionTypes::RECONNECT) {
       client->resendInitPackets();
     }
 
@@ -110,27 +131,37 @@ nn::Result SocketClient::init(const char* ip, u16 port) {
 
 }
 
-bool SocketClient::send(Packet *packet) {
+bool SocketClient::send(packets::Packet *packet) {
 
     if (this->socket_log_state != SOCKET_LOG_CONNECTED)
         return false;
 
-    char* buffer = reinterpret_cast<char*>(packet);
+    auto json = packetToJson(*packet);
 
-    int valread = 0;
+    // if (packet->mType != PLAYERINF && packet->mType != HACKCAPINF)
+    //     Logger::log("Sending packet: %s\n", json.c_str());
 
-    if (packet->mType != PLAYERINF && packet->mType != HACKCAPINF)
-        Logger::log("Sending packet: %s\n", packetNames[packet->mType]);
+    int32_t packetLength = json.size();
 
-    if ((valread = nn::socket::Send(this->socket_log_socket, buffer, packet->mPacketSize + sizeof(Packet), 0) > 0)) {
+    auto sendData = [this](char const* data, size_t size) {
+        int valread = 0;
+        if ((valread = nn::socket::Send(this->socket_log_socket, data, size, 0) > 0)) {
+            return true;
+        } else {
+            Logger::log("Failed to Fully Send Packet! Result: %d Send Size: %d\n", valread, size);
+            this->socket_errno = nn::socket::GetLastErrno();
+            this->tryReconnect();
+            return false;
+        }
         return true;
-    } else {
-        Logger::log("Failed to Fully Send Packet! Result: %d Type: %s Packet Size: %d\n", valread, packetNames[packet->mType], packet->mPacketSize);
-        this->socket_errno = nn::socket::GetLastErrno();
-        this->tryReconnect();
+    };
+
+    auto res = sendData((char*)&packetLength, sizeof(packetLength));
+    if (!res) {
         return false;
     }
-    return true;
+    res = sendData(json.c_str(), json.size());
+    return res;
 }
 
 bool SocketClient::recv() {
@@ -141,13 +172,13 @@ bool SocketClient::recv() {
         return this->tryReconnect();
     }
     
-    int headerSize = sizeof(Packet);
-    char headerBuf[sizeof(Packet)] = {};
+    int32_t packetSize = 0;
+    constexpr int headerSize = sizeof(packetSize);
     int valread = 0;
 
     // read only the size of a header
     while(valread < headerSize) {
-        int result = nn::socket::Recv(this->socket_log_socket, headerBuf + valread,
+        int result = nn::socket::Recv(this->socket_log_socket, ((char*)&packetSize) + valread,
                                       headerSize - valread, this->sock_flags);
 
         this->socket_errno = nn::socket::GetLastErrno();
@@ -164,81 +195,67 @@ bool SocketClient::recv() {
         }
     }
 
-    if(valread > 0) {
-        Packet* header = reinterpret_cast<Packet*>(headerBuf);
-
-        int fullSize = header->mPacketSize + sizeof(Packet);
-
-        if (header->mType > PacketType::UNKNOWN && header->mType < PacketType::End &&
-            fullSize <= MAXPACKSIZE && fullSize > 0 && valread == sizeof(Packet)) {
-
-            if (header->mType != PLAYERINF && header->mType != HACKCAPINF) {
-                Logger::log("Received packet (from %02X%02X):", header->mUserID.data[0],
-                            header->mUserID.data[1]);
-                Logger::disableName();
-                Logger::log(" Size: %d", header->mPacketSize);
-                Logger::log(" Type: %d", header->mType);
-                if(packetNames[header->mType])
-                    Logger::log(" Type String: %s\n", packetNames[header->mType]);
-                Logger::enableName();
-            }
-
-            char* packetBuf = (char*)mHeap->alloc(fullSize);
-
-            if (packetBuf) {
-                
-                memcpy(packetBuf, headerBuf, sizeof(Packet));
-
-                while (valread < fullSize) {
-
-                    int result = nn::socket::Recv(this->socket_log_socket, packetBuf + valread,
-                                                  fullSize - valread, this->sock_flags);
-
-                    this->socket_errno = nn::socket::GetLastErrno();
-
-                    if (result > 0) {
-                        valread += result;
-                    } else {
-                        mHeap->free(packetBuf);
-                        Logger::log("Packet Read Failed! Value: %d\nPacket Size: %d\nPacket Type: %s\n", result, header->mPacketSize, packetNames[header->mType]);
-                        return this->tryReconnect();
-                    }
-                }
-
-                Packet* packet = reinterpret_cast<Packet*>(packetBuf);
-
-                if (!mRecvQueue.isFull()) {
-                    mRecvQueue.push((s64)packet, sead::MessageQueue::BlockType::NonBlocking);
-                } else {
-                    mHeap->free(packetBuf);
-                }
-            }
-        } else {
-            Logger::log("Failed to aquire valid data! Packet Type: %d Full Packet Size %d valread size: %d", header->mType, fullSize, valread);
-        }
-        
-        return true;
-    } else {  // if we error'd, close the socket
+    if(valread <= 0) {  // if we error'd, close the socket
         Logger::log("valread was zero! Disconnecting.\n");
         this->socket_errno = nn::socket::GetLastErrno();
         return this->tryReconnect();
     }
+
+    // if (header->mType != PLAYERINF && header->mType != HACKCAPINF) {
+    //     Logger::log("Received packet (from %02X%02X):", header->mUserID.data[0],
+    //                 header->mUserID.data[1]);
+    //     Logger::disableName();
+    //     Logger::log(" Size: %d", header->mPacketSize);
+    //     Logger::log(" Type: %d", header->mType);
+    //     if(packetNames[header->mType])
+    //         Logger::log(" Type String: %s\n", packetNames[header->mType]);
+    //     Logger::enableName();
+    // }
+
+    char* packetBuf = (char*)mHeap->alloc(packetSize);
+
+    if (!packetBuf) {
+        return true;
+    }
+
+    while (valread < packetSize) {
+        int result = nn::socket::Recv(this->socket_log_socket, packetBuf + valread,
+                                        packetSize - valread, this->sock_flags);
+
+        this->socket_errno = nn::socket::GetLastErrno();
+
+        if (result > 0) {
+            valread += result;
+        } else {
+            mHeap->free(packetBuf);
+            Logger::log("Packet Read Failed! Value: %d\nPacket Size: %d\n", result, packetSize);
+            return this->tryReconnect();
+        }
+    }
+
+    std::string packetJson(packetBuf, packetSize);
+    mHeap->free(packetBuf);
+
+    packets::Packet* packet = (packets::Packet*)mHeap->alloc(sizeof(packets::Packet));
+    if (!packet) {
+        return false;
+    }
+    *packet = packets::Packet();
+    google::protobuf::util::JsonParseOptions jsonParseOptions;
+    JsonStringToMessage(packetJson, packet, jsonParseOptions);
+
+    if (!mRecvQueue.isFull()) {
+        mRecvQueue.push((s64)packet, sead::MessageQueue::BlockType::NonBlocking);
+    } else {
+        mHeap->free(packet);
+    }
+    
+    return true;
 }
 
 // prints packet to debug logger
-void SocketClient::printPacket(Packet *packet) {
-    packet->mUserID.print();
-    Logger::log("Type: %s\n", packetNames[packet->mType]);
-
-    switch (packet->mType)
-    {
-    case PacketType::PLAYERINF:
-        Logger::log("Pos X: %f Pos Y: %f Pos Z: %f\n", ((PlayerInf*)packet)->playerPos.x, ((PlayerInf*)packet)->playerPos.y, ((PlayerInf*)packet)->playerPos.z);
-        Logger::log("Rot X: %f Rot Y: %f Rot Z: %f\nRot W: %f\n", ((PlayerInf*)packet)->playerRot.x, ((PlayerInf*)packet)->playerRot.y, ((PlayerInf*)packet)->playerRot.z, ((PlayerInf*)packet)->playerRot.w);
-        break;
-    default:
-        break;
-    }
+void SocketClient::printPacket(packets::Packet *packet) {
+    Logger::log("Packet: %s\n", packetToJson(*packet).c_str());
 }
 
 bool SocketClient::tryReconnect() {
@@ -341,7 +358,7 @@ void SocketClient::recvFunc() {
     Logger::log("Ending Recv Thread.\n");
 }
 
-bool SocketClient::queuePacket(Packet* packet) {
+bool SocketClient::queuePacket(packets::Packet* packet) {
     if (socket_log_state == SOCKET_LOG_CONNECTED && !mSendQueue.isFull()) {
         mSendQueue.push((s64)packet,
                         sead::MessageQueue::BlockType::NonBlocking);  // as this is non-blocking, it
@@ -355,13 +372,13 @@ bool SocketClient::queuePacket(Packet* packet) {
 
 void SocketClient::trySendQueue() {
 
-    Packet* curPacket = (Packet*)mSendQueue.pop(sead::MessageQueue::BlockType::Blocking);
+    packets::Packet* curPacket = (packets::Packet*)mSendQueue.pop(sead::MessageQueue::BlockType::Blocking);
 
     send(curPacket);
 
     mHeap->free(curPacket);
 }
 
-Packet* SocketClient::tryGetPacket(sead::MessageQueue::BlockType blockType) {
-    return socket_log_state == SOCKET_LOG_CONNECTED ? (Packet*)mRecvQueue.pop(blockType) : nullptr;
+packets::Packet* SocketClient::tryGetPacket(sead::MessageQueue::BlockType blockType) {
+    return socket_log_state == SOCKET_LOG_CONNECTED ? (packets::Packet*)mRecvQueue.pop(blockType) : nullptr;
 }

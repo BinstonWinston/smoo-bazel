@@ -18,7 +18,7 @@
 #include "thread/seadMutex.h"
 #include "types.h"
 
-#include "packets/Packet.h"
+#include "packets/Packet.hpp"
 
 class Client;
 
@@ -32,18 +32,18 @@ class SocketClient : public SocketBase {
         bool startThreads();
         void endThreads();
 
-        bool send(Packet* packet);
+        bool send(packets::Packet* packet);
         bool recv();
 
-        bool queuePacket(Packet *packet);
+        bool queuePacket(packets::Packet *packet);
         void trySendQueue();
 
         void sendFunc();
         void recvFunc();
 
-        Packet *tryGetPacket(sead::MessageQueue::BlockType blockType = sead::MessageQueue::BlockType::Blocking);
+        packets::Packet *tryGetPacket(sead::MessageQueue::BlockType blockType = sead::MessageQueue::BlockType::Blocking);
 
-        void printPacket(Packet* packet);
+        void printPacket(packets::Packet* packet);
         bool isConnected() { return socket_log_state == SOCKET_LOG_CONNECTED; }
 
         u32 getSendCount() { return mSendQueue.getCount(); }

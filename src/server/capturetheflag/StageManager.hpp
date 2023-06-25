@@ -27,7 +27,7 @@ public: // This block is for debugging only, not needed for actual functionality
     static sead::Vector3f getSubAreaLocation(size_t index);
 
 public:
-    static std::optional<std::pair<StageData, const char*>> getHomeTeleport(StageData const& stageData, FlagTeam team);
+    static std::optional<std::pair<StageData, const char*>> getHomeTeleport(StageData const& stageData, packets::ctf::FlagTeam team);
 
     static std::optional<BorderTransform> getBorderTransform(StageData const& stageData);
 

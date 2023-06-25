@@ -5,9 +5,21 @@ package packets.ctf;
 import "google/protobuf/wrappers.proto";
 import "proto/util/Math.proto";
 
+message CTFPacket {
+    oneof packet {
+        GameState game_state = 1;
+        PlayerTeamAssignment player_team_assignment = 2;
+        Win win = 3;
+        FlagHoldState flag_hold_state = 4;
+        FlagDroppedPosition flag_dropped_position = 5;
+    }
+}
+
 enum FlagTeam {
-    RED = 0;
-    BLUE = 1;
+    INVALID = 0;
+    RED = 1;
+    BLUE = 2;
+    _COUNT = 3; // This value must always be last
 }
 
 message GameState {

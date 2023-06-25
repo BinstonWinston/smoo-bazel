@@ -107,8 +107,8 @@ class Client {
         static void sendShineCollectPacket(int shineId);
         static void sendTagInfPacket();
         static void sendCaptureInfPacket(const PlayerActorHakoniwa *player);
-        static void sendFlagHoldStatePacket(FlagHoldState const& packet);
-        static void sendCTFWinPacket(CaptureTheFlagWin const& packet);
+        static void sendFlagHoldStatePacket(packets::ctf::FlagHoldState const& packet);
+        static void sendCTFWinPacket(packets::ctf::Win const& packet);
         void resendInitPackets();
 
         int getCollectedShinesCount() { return curCollectedShines.size(); }
@@ -198,23 +198,23 @@ class Client {
         SocketClient *mSocket;
 
     private:
-        void updatePlayerInfo(PlayerInf *packet);
-        void updateHackCapInfo(HackCapInf *packet);
-        void updateGameInfo(GameInf *packet);
-        void updateCostumeInfo(CostumeInf *packet);
-        void updateShineInfo(ShineCollect *packet);
-        void updatePlayerConnect(PlayerConnect *packet);
-        void updateTagInfo(TagInf *packet);
-        void updateCaptureInfo(CaptureInf* packet);
-        void sendToStage(ChangeStagePacket* packet);
-        void disconnectPlayer(PlayerDC *packet);
+        void updatePlayerInfo(packets::PacketMetadata const& packetMetadata, packets::system::PlayerInf const& packet);
+        void updateHackCapInfo(packets::PacketMetadata const& packetMetadata, packets::system::HackCapInf const& packet);
+        void updateGameInfo(packets::PacketMetadata const& packetMetadata, packets::system::GameInf const& packet);
+        void updateCostumeInfo(packets::PacketMetadata const& packetMetadata, packets::system::CostumeInf const& packet);
+        void updateShineInfo(packets::PacketMetadata const& packetMetadata, packets::system::ShineCollect const& packet);
+        void updatePlayerConnect(packets::PacketMetadata const& packetMetadata, packets::system::PlayerConnect const& packet);
+        void updateTagInfo(packets::PacketMetadata const& packetMetadata, packets::system::TagInf const& packet);
+        void updateCaptureInfo(packets::PacketMetadata const& packetMetadata, packets::system::CaptureInf const& packet);
+        void sendToStage(packets::PacketMetadata const& packetMetadata, packets::system::ChangeStage const& packet);
+        void disconnectPlayer(packets::PacketMetadata const& packetMetadata, packets::system::PlayerDC const& packet);
 
         // Capture The Flag
-        void updateCTFPlayerTeamAssignment(CaptureTheFlagPlayerTeamAssignment const* packet);
-        void updateCTFGameState(CaptureTheFlagGameState const* packet);
-        void updateCTFFlagHoldState(FlagHoldState const* packet);
-        void updateCTFFlagDroppedPosition(FlagDroppedPosition const* packet);
-        void updateCTFWinState(CaptureTheFlagWin const* packet);
+        void updateCTFPlayerTeamAssignment(packets::PacketMetadata const& packetMetadata, packets::ctf::PlayerTeamAssignment const& packet);
+        void updateCTFGameState(packets::PacketMetadata const& packetMetadata, packets::ctf::GameState const& packet);
+        void updateCTFFlagHoldState(packets::PacketMetadata const& packetMetadata, packets::ctf::FlagHoldState const& packet);
+        void updateCTFFlagDroppedPosition(packets::PacketMetadata const& packetMetadata, packets::ctf::FlagDroppedPosition const& packet);
+        void updateCTFWinState(packets::PacketMetadata const& packetMetadata, packets::ctf::Win const& packet);
 
         PuppetInfo* findPuppetInfo(const nn::account::Uid& id, bool isFindAvailable);
 
@@ -241,12 +241,12 @@ class Client {
         int lastCollectedShine = -1;
 
         // Backups for our last player/game packets, used for example to re-send them for newly connected clients
-        PlayerInf lastPlayerInfPacket = PlayerInf();
-        GameInf lastGameInfPacket = GameInf();
-        GameInf emptyGameInfPacket = GameInf();
-        CostumeInf lastCostumeInfPacket = CostumeInf();
-        FlagHoldState lastFlagHoldStatePacket = FlagHoldState();
-        CaptureTheFlagWin lastCTFWinPacket = CaptureTheFlagWin();
+        packets::Packet lastPlayerInfPacket;
+        packets::Packet lastGameInfPacket;
+        packets::Packet emptyGameInfPacket;
+        packets::Packet lastCostumeInfPacket;
+        packets::Packet lastFlagHoldStatePacket;
+        packets::Packet lastCTFWinPacket;
 
         Keyboard* mKeyboard = nullptr; // keyboard for setting server IP
 

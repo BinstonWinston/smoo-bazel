@@ -1,8 +1,5 @@
 #pragma once
 
-enum class FlagTeam: unsigned char {
-    INVALID,
-    RED,
-    BLUE,
-    _COUNT,
-};
+#include "packets/Packet.hpp"
+
+using FlagTeam = packets::ctf::FlagTeam;

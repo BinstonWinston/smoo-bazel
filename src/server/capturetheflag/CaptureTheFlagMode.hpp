@@ -14,11 +14,11 @@
 
 struct CaptureTheFlagInfo : GameModeInfoBase {
     CaptureTheFlagInfo() { mMode = GameMode::CAPTURE_THE_FLAG; }
-    FlagTeam mPlayerTeam = FlagTeam::INVALID;
+    packets::ctf::FlagTeam mPlayerTeam = FlagTeam::INVALID;
     bool mIsUseGravity = false;
     bool mIsUseGravityCam = false;
-    FlagTeam mHeldFlag = FlagTeam::INVALID;
-    FlagTeam mWinningTeam = FlagTeam::INVALID;
+    packets::ctf::FlagTeam mHeldFlag = FlagTeam::INVALID;
+    packets::ctf::FlagTeam mWinningTeam = FlagTeam::INVALID;
     GameTime mRoundTime;
 };
 
@@ -35,9 +35,9 @@ class CaptureTheFlagMode : public GameModeBase {
 
         void resetGameInfo(); // Resets the info to all default values, useful when starting a new game/round
 
-        FlagTeam getPlayerTeam() const { return mInfo->mPlayerTeam; };
+        packets::ctf::FlagTeam getPlayerTeam() const { return mInfo->mPlayerTeam; };
 
-        void setPlayerTeam(FlagTeam team) { mInfo->mPlayerTeam = team; }
+        void setPlayerTeam(packets::ctf::FlagTeam team) { mInfo->mPlayerTeam = team; }
 
         void enableGravityMode() {mInfo->mIsUseGravity = true;}
         void disableGravityMode() { mInfo->mIsUseGravity = false; }
@@ -45,7 +45,7 @@ class CaptureTheFlagMode : public GameModeBase {
 
         void setCameraTicket(al::CameraTicket *ticket) {mTicket = ticket;}
 
-        FlagTeam getTeamSide() const; // Returns the flag team that owns the side of the map the player is on
+        packets::ctf::FlagTeam getTeamSide() const; // Returns the flag team that owns the side of the map the player is on
 
     private:
         static float constexpr TELEPORT_TIMER_MODE_FREEZE_THRESHOLD_SECONDS = 5.0f;
@@ -75,11 +75,11 @@ class CaptureTheFlagMode : public GameModeBase {
         void queueHomeTeleport();
 
         bool isPlayerOnSelfTeamSide() const; // Returns true iff the player is on their own team's side
-        std::optional<FlagTeam> getOpposingTeam(FlagTeam team) const;
+        std::optional<packets::ctf::FlagTeam> getOpposingTeam(packets::ctf::FlagTeam team) const;
         bool isInvulnerable() const;
         StageData getLocalPlayerStageData() const;
         bool isInSubArea() const;
 
         // Calculate which team's side the given position is on relative to this border
-        FlagTeam getTeamSide(sead::Vector3f const& pos, BorderTransform const& borderTransform) const;
+        packets::ctf::FlagTeam getTeamSide(sead::Vector3f const& pos, BorderTransform const& borderTransform) const;
 };

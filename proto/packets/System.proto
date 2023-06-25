@@ -1,10 +1,27 @@
 // Base packets required for SMOO to function
 syntax = "proto3";
 
-package packets;
+package packets.system;
 
 import "google/protobuf/wrappers.proto";
 import "proto/util/Math.proto";
+
+message SystemPacket {
+    oneof packet {
+        CaptureInf capture_inf = 1;
+        ChangeStage change_stage = 2;
+        CostumeInf costume_inf = 3;
+        GameInf game_inf = 4;
+        HackCapInf hack_cap_inf = 5;
+        Init init = 6;
+        PlayerConnect player_connect = 7;
+        PlayerDC player_dc  = 8;
+        PlayerInf player_inf = 9;
+        ServerCommand server_command = 10;
+        ShineCollect shine_collect = 11;
+        TagInf tag_inf = 12;
+    }
+}
 
 message CaptureInf {
     string hack_name = 1;
@@ -81,8 +98,8 @@ enum TagUpdateType {
 }
 
 message TagInf {
-    TagUpdateType update_type = 1;
+    uint32 update_type = 1; // Bit flags of TagUpdateType
     google.protobuf.BoolValue is_it = 2;
     uint32 seconds = 3;
     uint32 minutes = 4;
-};
+}

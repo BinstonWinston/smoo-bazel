@@ -54,7 +54,6 @@ dkp_nso = rule(
 
 def _ips_patch_impl(ctx):
     gen_patch_script = ctx.files._gen_patch_script[0]
-    print(ctx.files.linker_map)
     map_file = ctx.files.linker_map[1] # Second file in cc_library rule output is .so and that is replaced to the linker map file by g++-wrapper.py
     ctx.actions.run_shell(
         inputs = [gen_patch_script, map_file],
