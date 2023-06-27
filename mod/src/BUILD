@@ -15,8 +15,8 @@ dkp_cc_library(
         ".",
     ],
     copts = [
-        "-I./src",
-        "-I./src/sead",
+        "-I./mod/src",
+        "-I./mod/src/sead",
     ],
     emu = False,
     deps = [
@@ -37,8 +37,10 @@ dkp_cc_library(
     ]),
     includes = [
         ".",
-        "./src",
-        "./src/sead",
+    ],
+    copts = [
+        "-I./mod/src",
+        "-I./mod/src/sead",
     ],
     emu = True,
     deps = [
@@ -75,7 +77,7 @@ dkp_atmosphere_package(
     nso = ":smoo_nso",
     ips_patch = ":smoo_ips",
     title_id = "0100000000010000",
-    romfs = "//romfs:smoo_romfs",
+    romfs = "//mod/romfs:smoo_romfs",
     build_id = "3CA12DFAAF9C82DA064D1698DF79CDA1",
 )
 
@@ -84,12 +86,12 @@ dkp_atmosphere_package(
     nso = ":smoo_emu_nso",
     ips_patch = ":smoo_ips",
     title_id = "0100000000010000",
-    romfs = "//romfs:smoo_romfs",
+    romfs = "//mod/romfs:smoo_romfs",
     build_id = "3CA12DFAAF9C82DA064D1698DF79CDA1",
 )
 
 # dkp_yuzu_package(
 #     name = "smoo_yuzu",
 #     nso = ":smoo_emu_nso",
-#     romfs = "//romfs:smoo_romfs",
+#     romfs = "//mod/romfs:smoo_romfs",
 # )
